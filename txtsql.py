@@ -10,7 +10,11 @@ if __name__ == '__main__':
   args = parser.parse_args()
   sql_str = args.sql
 
-  q = Query(sql_str)
+  t = SqlTokenizer()
+  tokens = t.parse(self.sql_str)
+  print(tokens.from_clauses.asList())
+
+  q = Query(tokens.column_names.asList(), tokens.column_names.asList(), tokens.where.asList()[0][1:])
   result = q.generate_table()
   print(result.cmd)
   

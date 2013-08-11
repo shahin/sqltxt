@@ -1,42 +1,56 @@
 from sql_tokenizer import SqlTokenizer
 from table import Table
+from copy import deepcopy
 
 class Query:
 
-  def __init__(self, sql_text):
-    self.sql_text = sql_text
+  def __init__(self, column_names, from_clauses, where_clauses):
+
+    self.from_clauses = from_clauses
+    self.column_names = column_names
+    # self.qualified_names = self._qualify_column_names()
     self.tables = {}
+    self.where_clauses = where_clauses
 
-    t = SqlTokenizer()
-    self.tokens = t.parse(self.sql_text)
-    print(self.tokens.from_clauses.asList())
+  def generate_table(self):
 
-    self.column_names = self.tokens.column_names.asList()
-    self.qualified_names = self._qualify_column_names()
-
-    #import pdb; pdb.set_trace()
-
-    # instantiate a Table for each table listed in the from-expression
-    for idx, from_clause in enumerate(self.tokens.from_clauses.asList()):
-      if idx == 0:
+    # instantiate a Table for each table listed in from-clauses
+    for idx, from_clause in enumerate(self.from_clauses):
+      if len(from_clause) == 1:
         table_name = from_clause[0]
       else:
         table_name = from_clause[1]
       self.tables[table_name] = Table(table_name)
+    
+    n_from_clauses = len(self.from_clauses)
 
+    if n_from_clauses > 1:
+      left_subquery = deepcopy(self)
+      del left_subquery.from_clauses[-1]
+      right_subquery = deepcopy(self)
+      del right_subquery.from_clauses[:-1]
+      joined_table = self.join(left_subquery.generate_table(),right_subquery.generate_table())
+      return joined_table
 
-  def generate_table(self):
+    elif n_from_clauses == 1:
+      if len(self.from_clauses[0]) == 1:
+        table_name = self.from_clauses[0][0]
+      else:
+        table_name = self.from_clauses[0][1]
+      table = Table(table_name)
 
-    commands = []
-    table = list(self.tables.values())[0]
-    select_columns = ','.join(['$' + str(table.column_idxs[c]+1) for c in self.column_names])
-    select_conditions = self._sql_bools_to_awk_bools(self.tokens)
-    awk_cmd = "awk -F',' 'OFS=\",\" {{ if ({0}) {{ print {1} }} }}'".format(select_conditions,select_columns)
-    commands.append(awk_cmd)
+      #import pdb; pdb.set_trace()
 
-    command_str = ' | '.join(commands) + ' < ' + table.name + '.txt'
-
-    return Table('result_{0}'.format(id(self)), cmd=command_str, column_names = self.column_names)
+      if self.where_clauses is not None:
+        where_conditions = self._normalize_sql_boolean_operators(self.where_clauses)
+        table.select_subset(where_conditions)
+      
+      #if self.order_by is not None:
+      #  table.sort()
+      table.order_columns(self.column_names)
+      return table
+    
+    return None
 
 
   def _qualify_column_names(self):
@@ -46,17 +60,17 @@ class Query:
     
     for col_name in self.column_names:
       names_for_this_col = []
-      for table_name in self.tables.keys():
-        if col_name in self.tables[table_name].column_names:
+      for table_name in self.from_clauses.keys():
+        if col_name in self.from_clauses[table_name].column_names:
           names_for_this_col.append(table_name + '.' + col_name)
       qualified_names[col_name] = names_for_this_col
 
     return qualified_names
 
 
-  def _sql_bools_to_awk_bools(self, parsed):
+  def _normalize_sql_boolean_operators(self, sql_where_clauses):
 
-    sql_to_awk_operators = {
+    sql_to_bool_operators = {
         '=': '==',
         'eq': '==',
         'ne': '!=',
@@ -66,21 +80,12 @@ class Query:
         'lt': '<'
         }
 
-    table = list(self.tables.values())[0]
+    bool_where_clauses = []
 
-    # translate SQL boolean conditions to awk syntax
-    select_conditions = '1'
-    where_tokens = parsed.where.asList()[0]
-    if len(where_tokens) > 0:
-      select_conditions = ''
-      for expr_part in where_tokens[1:]:
-        if expr_part == 'and':
-          select_conditions += ' && '
-        elif expr_part == 'or':
-          select_conditions += ' || '
-        else:
-          expr_part = [ sql_to_awk_operators.get(token, token) for token in expr_part ]
-          expr_part = [ ('$' + str(table.column_idxs[token]+1) if token in table.column_idxs else token) for token in expr_part ]
-          select_conditions += ' '.join(expr_part)
+    # translate SQL-specific boolean operators to the tokens that normal languages use
+    if len(sql_where_clauses) > 0:
+      for clause in sql_where_clauses:
+        bool_clause = [ sql_to_bool_operators.get(token, token) for token in clause ]
+        bool_where_clauses.append(bool_clause)
 
-    return select_conditions
+    return bool_where_clauses

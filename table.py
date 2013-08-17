@@ -9,32 +9,37 @@ class Table:
 
     # initialize as a non-materialized table
     self.is_file = False
-    self.cmd = [cmd]
+    self.cmds = [cmd]
     self.outfile_name = "{0}.{1}.out".format(name, extension)
     self.column_names = column_names
 
     if cmd is None:
       # initialize as a materialized table
-      self.cmd = []
+      self.cmds = []
       self.outfile_name = "{0}.{1}".format(name, extension)
       self.column_names = self._parse_column_names()
       self.is_file = True
 
     self.column_idxs = self._compute_column_indices()
 
-  def order_columns(self, col_names_in_order):
+  def order_columns(self, col_names_in_order, drop_other_columns = False):
     
     reordered_col_idxs = [self.column_idxs[col_name] for col_name in col_names_in_order]
-    unchanged_col_idxs = [self.column_idxs[col_name] for col_name in self.column_names
-      if col_name not in col_names_in_order]
-    col_idxs = reordered_col_idxs + unchanged_col_idxs
+    unchanged_col_idxs = [
+      self.column_idxs[col_name] for col_name in self.column_names
+      if col_name not in col_names_in_order
+      ]
+
+    col_idxs = reordered_col_idxs
+    if not drop_other_columns:
+      col_idxs += unchanged_col_idxs
 
     reorder_cmd = 'cut -d{0} -f{1}'.format(self.delimiter, ','.
       join(str(idx) for idx in col_idxs))
 
     self.column_names = [self.column_names[idx-1] for idx in col_idxs]
     self.column_idxs = self._compute_column_indices()
-    self.cmd.append(reorder_cmd)
+    self.cmds.append(reorder_cmd)
 
   def sort(self, col_names_to_sort_by):
 
@@ -55,7 +60,7 @@ class Table:
     sort_cmd = 'sort -t{0} -k {1}'.format(self.delimiter, ','.
       join(str(idx) for idx in column_idxs_to_sort_by))
     self.sorted_by = col_names_to_sort_by
-    self.cmd.append(sort_cmd)
+    self.cmds.append(sort_cmd)
     
 
   def select_subset(self, conditions):
@@ -77,12 +82,24 @@ class Table:
       condition_str = '1'
 
     columns = ','.join(['$' + str(self.column_idxs[c]) for c in self.column_names])
-    awk_cmd = "awk -F'{0}' 'OFS=\"{0}\" {{ if ({1}) {{ print {2} }} }}".format(
+    awk_cmd = "awk -F'{0}' 'OFS=\"{0}\" {{ if ({1}) {{ print {2} }} }}'".format(
       self.delimiter, condition_str, columns)
-    self.cmd.append(awk_cmd)
+    self.cmds.append(awk_cmd)
 
-  def to_file_cmd(self):
-    return self.cmd + " > " + self.outfile_name
+  def get_cmd_str(self, outfile_name = None):
+
+    cmd_str = ' | '.join(self.cmds)
+
+    # add input piped from a file
+    if self.is_file:
+      cmd_str = 'tail +2 {0}.{1} | '.format(self.name, self.extension) + cmd_str 
+
+    # add output redirection to file
+    if outfile_name is not None:
+      cmd_str += (' > ' + outfile_name)
+
+    print(cmd_str)
+    return cmd_str
 
   def _parse_column_names(self):
 

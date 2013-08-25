@@ -58,7 +58,7 @@ class Query:
     
     return None
 
-  def join(self, left_subquery_table, right_subquery_table, join_conditions):
+  def join(left_subquery_table, right_subquery_table, join_conditions):
 
     # TODO: check sortedness of both tables
 
@@ -84,21 +84,14 @@ class Query:
       elif var2_table_name == right_subquery_table.name:
         right_indices.append(right_subquery_table.column_idxs[var2_name])
 
-      left_indices_arg = ','.join(left_indices)
-      right_indices_arg = ','.join(right_indices)
+      left_indices_arg = ','.join([str(li) for li in left_indices])
+      right_indices_arg = ','.join([str(ri) for ri in right_indices])
       
-    left_filename = left_subquery_table.name + '.out'
-    right_filename = right_subquery_table.name + '.out'
+    join_cmd = "join -t, -1 {0} -2 {1} <({2}) <({3})".format(
+      left_indices_arg, right_indices_arg, 
+      left_subquery_table.get_cmd_str(), right_subquery_table.get_cmd_str())
 
-    join_cmd = "join -t, -1 {0} -2 {1} {2} {3}".format(
-      left_indices_arg, right_indices_art, left_filename, right_filename)
-
-    cmd = ' '.join(
-      left_subquery_table.to_file_cmd(left_filename) + 
-      right_subquery_table.to_file_cmd(right_filename) + 
-      join_cmd)
-
-    return cmd
+    return join_cmd
 
   def _qualify_column_names(unqualified_column_names, tables):
     """Return a dict of lists of qualified column names for the specified columns.

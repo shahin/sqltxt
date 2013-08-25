@@ -78,6 +78,7 @@ class Table:
             for token in expr_part ]
         condition_str += ' '.join(expr_part)
 
+    # treat no conditions as an always-true condition
     if condition_str == '':
       condition_str = '1'
 
@@ -88,18 +89,29 @@ class Table:
 
   def get_cmd_str(self, outfile_name = None):
 
-    cmd_str = ' | '.join(self.cmds)
+    cmds = self.cmds
 
     # add input piped from a file
     if self.is_file:
-      cmd_str = 'tail +2 {0}.{1} | '.format(self.name, self.extension) + cmd_str 
+      cmds = ['tail +2 {0}.{1}'.format(self.name, self.extension)] + cmds 
+
+    cmd_str = ' | '.join(cmds)
 
     # add output redirection to file
     if outfile_name is not None:
       cmd_str += (' > ' + outfile_name)
 
-    print(cmd_str)
     return cmd_str
+
+  def get_cmd_to_pipe_str(self):
+
+    pipe_name = self.get_pipe_name() 
+    create_pipe_cmd = 'mkfifo {0}; '.format(pipe_name)
+    return create_pipe_cmd + self.get_cmd_str(outfile_name = pipe_name)
+
+  def get_pipe_name(self):
+
+    return self.name + '.fifo'
 
   def _parse_column_names(self):
 

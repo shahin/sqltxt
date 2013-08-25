@@ -79,10 +79,13 @@ class QueryTest(unittest.TestCase):
 
   def test_join_two_tables(self):
     
-    join_condition = ['table_a.col_a', '=', 'table_b.col_a']
-    cmd_actual = q.join(table_a, table_b, join_condition)
+    table_a = Table('table_a')
+    table_b = Table('table_b')
+    join_condition = [['table_a.col_a', '=', 'table_b.COL_A']]
+    cmd_actual = Query.join(table_a, table_b, join_condition)
     
     cmd_expected = "join -t, -1 1 -2 1 table_a.txt table_b.txt"
+    self.assertEqual(cmd_actual, cmd_expected)
     
 
   def test_join_two_tables_with_sort(self):

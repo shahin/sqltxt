@@ -92,19 +92,3 @@ class TableTest(unittest.TestCase):
     cmd_actual = table_from_cmd.get_cmd_str('out_file.out')
     cmd_expected = 'echo -e "1,2,3,4" | sort > out_file.out'
     self.assertEqual(cmd_actual, cmd_expected)
-
-  def test_get_pipe_name(self):
-    
-    test_table = Table('table_a')
-    name_expected = 'table_a.fifo'
-    name_actual = test_table.get_pipe_name()
-    self.assertEqual(name_actual, name_expected)
-
-  def test_get_cmd_to_pipe_str(self):
-
-    # output to a named pipe
-    table_from_file = Table('table_a')
-    cmd_actual = table_from_file.get_cmd_to_pipe_str()
-    cmd_expected = 'mkfifo table_a.fifo; tail +2 table_a.txt > table_a.fifo'
-    self.assertEqual(cmd_actual, cmd_expected)
-

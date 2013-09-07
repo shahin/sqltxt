@@ -11,10 +11,6 @@ class Query:
     self.tables = {}
     self.where_clauses = where_clauses
 
-    for from_clause in self.from_clauses:
-      if 'join' in from_clause[0]:
-        return None
-
   def generate_table(self):
 
     # instantiate a Table for each table listed in from-clauses
@@ -40,10 +36,12 @@ class Query:
       return joined_table
 
     elif n_from_clauses == 1:
-      if len(self.from_clauses[0]) == 1:
-        table_name = self.from_clauses[0][0]
+
+      first_from_clause = self.from_clauses[0]
+      if len(first_from_clause) == 1:
+        table_name = first_from_clause[0]
       else:
-        table_name = self.from_clauses[0][1]
+        table_name = first_from_clause[1]
 
       result_table = Table(table_name)
 
@@ -58,7 +56,7 @@ class Query:
     
     return None
 
-  def join(left_subquery_table, right_subquery_table, join_conditions):
+  def join(self, left_subquery_table, right_subquery_table, join_conditions):
 
     # TODO: check sortedness of both tables
 
@@ -87,11 +85,45 @@ class Query:
       left_indices_arg = ','.join([str(li) for li in left_indices])
       right_indices_arg = ','.join([str(ri) for ri in right_indices])
       
+    # join the data
     join_cmd = "join -t, -1 {0} -2 {1} <({2}) <({3})".format(
       left_indices_arg, right_indices_arg, 
       left_subquery_table.get_cmd_str(), right_subquery_table.get_cmd_str())
 
-    return join_cmd
+    join_column_names = self._join_column_names(
+      left_subquery_table, right_subquery_table, left_indices, right_indices)
+
+    join_result_table = Table(
+      'join_result',
+      cmd = join_cmd,
+      column_names = join_column_names
+      )
+
+    return join_result_table
+
+  def _join_column_names(self, left_subquery_table, right_subquery_table, left_indices, right_indices):
+
+    n_columns_left = len(left_subquery_table.column_names)
+    n_columns_right = len(right_subquery_table.column_names)
+
+    join_column_names = [left_subquery_table.column_names[i] for i in left_indices]
+    nonjoin_column_names = [left_subquery_table.column_names[i] for i in range(n_columns_left)
+      if i not in left_indices]
+    nonjoin_column_names += [right_subquery_table.column_names[i] for i in range(n_columns_right)
+      if i not in right_indices]
+
+    join_result_column_names = join_column_names + nonjoin_column_names
+
+    return join_result_column_names
+
+  def _qualify_join_conditions(join_conditions, table_list):
+    
+    qualified_conds = []
+
+    for cond in join_conditions:
+      qualified_lhs = _qualify_column_names([cond[0]], table_list)
+      qualified_rhs = _qualify_column_names([cond[2]], table_list)
+
 
   def _qualify_column_names(unqualified_column_names, tables):
     """Return a dict of lists of qualified column names for the specified columns.

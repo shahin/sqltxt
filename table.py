@@ -87,31 +87,25 @@ class Table:
       self.delimiter, condition_str, columns)
     self.cmds.append(awk_cmd)
 
-  def get_cmd_str(self, outfile_name = None):
+  def get_cmd_str(self, outfile_name = None, output_column_names = False):
 
     cmds = self.cmds
 
-    # add input piped from a file
+    # add input from a file
     if self.is_file:
       cmds = ['tail +2 {0}.{1}'.format(self.name, self.extension)] + cmds 
 
     cmd_str = ' | '.join(cmds)
+
+    # write column names
+    if output_column_names:
+      cmd_str = 'echo "{0}"; '.format(','.join(self.column_names)) + cmd_str
 
     # add output redirection to file
     if outfile_name is not None:
       cmd_str += (' > ' + outfile_name)
 
     return cmd_str
-
-  def get_cmd_to_pipe_str(self):
-
-    pipe_name = self.get_pipe_name() 
-    create_pipe_cmd = 'mkfifo {0}; '.format(pipe_name)
-    return create_pipe_cmd + self.get_cmd_str(outfile_name = pipe_name)
-
-  def get_pipe_name(self):
-
-    return self.name + '.fifo'
 
   def _parse_column_names(self):
 

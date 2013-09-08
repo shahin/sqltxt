@@ -55,7 +55,7 @@ class Table:
     self.column_idxs = self._compute_column_indices()
     self.cmds.append(reorder_cmd)
 
-  def _is_sorted(self, sort_order_indices):
+  def is_sorted_by(self, sort_order_indices):
 
     if len(self.sorted_by) < len(sort_order_indices):
       return False

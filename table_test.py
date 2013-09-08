@@ -81,6 +81,19 @@ class TableTest(unittest.TestCase):
         "cut -d, -f2,1", "sort -t, -k 1,2", "cut -d, -f2,1"]
     self.assertEqual(cmds_actual, cmds_expected)
 
+  def test_is_sorted_by(self):
+
+    table_from_cmd = Table.from_cmd(
+      name = 'table_a', 
+      cmd = 'echo -e ""',
+      column_names = ['col_a', 'col_b'])
+
+    table_from_cmd.sorted_by = ['col_a', 'col_b']
+
+    self.assertTrue(table_from_cmd.is_sorted_by([1]))
+    self.assertFalse(table_from_cmd.is_sorted_by([2]))
+    self.assertTrue(table_from_cmd.is_sorted_by([1,2]))
+
   def test_get_cmd_str(self):
     
     table_from_file = Table.from_filename('table_a')

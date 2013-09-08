@@ -93,10 +93,10 @@ class Query:
       left_indices_arg = ','.join([str(li) for li in left_indices])
       right_indices_arg = ','.join([str(ri) for ri in right_indices])
 
-    if not left_table._is_sorted(left_indices):
+    if not left_table.is_sorted_by(left_indices):
       left_table.sort([left_table.column_names[i-1] for i in left_indices])
 
-    if not right_table._is_sorted(right_indices):
+    if not right_table.is_sorted_by(right_indices):
       right_table.sort([right_table.column_names[i-1] for i in right_indices])
 
     # join the data

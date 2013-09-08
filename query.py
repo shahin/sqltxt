@@ -4,57 +4,70 @@ from copy import deepcopy
 
 class Query:
 
-  def __init__(self, column_names, from_clauses, where_clauses):
+  def __init__(self, from_clauses, where_clauses, column_names = None):
 
     self.from_clauses = from_clauses
-    self.column_names = column_names
-    self.tables = {}
     self.where_clauses = where_clauses
+    self.column_names = column_names
+
+    self.missing_select_columns = None
+
+    self.tables = {}
+
 
   def generate_table(self):
 
-    # instantiate a Table for each table listed in from-clauses
-    for idx, from_clause in enumerate(self.from_clauses):
-      if len(from_clause) == 1:
-        table_name = from_clause[0]
-      else:
-        table_name = from_clause[1]
-      self.tables[table_name] = Table(table_name)
-    
-    n_from_clauses = len(self.from_clauses)
+    # instantiate the left-most Table in all the where clauses
+    first_from_clause_tokens = self.from_clauses[0]
+    if len(first_from_clause_tokens) > 1:
+      # first where clause is a join clause
+      left_table = Table(first_from_clause_tokens[1])
+    else:
+      # first where clause is not a join clause
+      left_table = Table(first_from_clause_tokens[0])
 
-    if n_from_clauses > 1:
-      left_subquery = deepcopy(self)
-      del left_subquery.from_clauses[:-1]
-      right_subquery = deepcopy(self)
-      del right_subquery.from_clauses[-1]
+    if len(self.from_clauses) > 1:
+      # instantiate the right Table as the result of a Query on all tables other than
+      # the left-most
+
+      right_subquery = Query(self.from_clauses[1:], [], self.column_names)
+      right_table = right_subquery.generate_table()
+
+      if right_subquery.missing_select_columns:
+        # does the left table have these columns?
+        self.missing_select_columns = [
+          col_name for col_name in right_subquery.missing_select_columns
+          if col_name not in left_table.column_names
+          ]
+        
       joined_table = self.join(
-        left_subquery.generate_table(),
-        right_subquery.generate_table(),
-        self._qualify_column_names(right_subquery.from_clauses[0][3])
+        left_table,
+        right_table,
+        self._qualify_column_names(right_table.from_clauses[0][3])
         )
-      return joined_table
-
-    elif n_from_clauses == 1:
-
-      first_from_clause = self.from_clauses[0]
-      if len(first_from_clause) == 1:
-        table_name = first_from_clause[0]
-      else:
-        table_name = first_from_clause[1]
-
-      result_table = Table(table_name)
 
       if self.where_clauses:
         where_conditions = self._normalize_sql_boolean_operators(self.where_clauses)
-        result_table.select_subset(where_conditions)
+        joined_table.select_subset(where_conditions)
+      
+      return joined_table
+
+    else:
+
+      self.missing_select_columns = [col_name for col_name in self.column_names
+        if col_name not in left_table.column_names]
+
+      if self.where_clauses:
+        where_conditions = self._normalize_sql_boolean_operators(self.where_clauses)
+        left_table.select_subset(where_conditions)
       
       #if self.order_by is not None:
       #  table.sort()
-      result_table.order_columns(self.column_names, drop_other_columns=True)
-      return result_table
+
+      left_table.order_columns(self.column_names, drop_other_columns=True)
+
+      return left_table
     
-    return None
 
   def join(self, left_subquery_table, right_subquery_table, join_conditions):
 

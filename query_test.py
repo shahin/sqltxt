@@ -15,19 +15,19 @@ class QueryTest(unittest.TestCase):
 
     self.table_a = Table(
       'table_a', 
-      cmd = 'echo -e {0}'.format(table_contents), 
+      cmd = 'echo -e "{0}"'.format(table_contents), 
       column_names = table_header
       )
 
     table_header = ["col_a", "col_b"]
     table_contents = """1,w
 2,x
-3,y
-4,z"""
+2,y
+5,z"""
 
     self.table_b = Table(
       'table_b', 
-      cmd = 'echo -e {0}'.format(table_contents), 
+      cmd = 'echo -e "{0}"'.format(table_contents), 
       column_names = table_header
       )
 
@@ -45,7 +45,7 @@ class QueryTest(unittest.TestCase):
 
   def test_select(self):
 
-    q = Query(['col_a', 'col_b'], [['table_a']], [])
+    q = Query([['table_a']], [], ['col_a', 'col_b'])
     table_actual = q.generate_table()
 
     contents_expected = "1,4\n2,3\n3,2\n4,1"
@@ -56,13 +56,13 @@ class QueryTest(unittest.TestCase):
       column_names = header_expected 
       )
 
-    table_expected_out = subprocess.check_output(['/bin/bash', '-c', table_expected.get_cmd_str()])
-    table_actual_out = subprocess.check_output(['/bin/bash', '-c', table_actual.get_cmd_str()])
+    table_expected_out = subprocess.check_output(['/bin/bash', '-c', table_expected.get_cmd_str(output_column_names=True)])
+    table_actual_out = subprocess.check_output(['/bin/bash', '-c', table_actual.get_cmd_str(output_column_names=True)])
     self.assertEqual(table_actual_out, table_expected_out)
           
   def test_where(self):
 
-    q = Query(['col_a', 'col_b'], [['table_a']], [['col_c', '<', '3']])
+    q = Query([['table_a']], [['col_c', '<', '3']], ['col_a', 'col_b'])
     table_actual = q.generate_table()
 
     contents_expected = "1,4\n2,3"
@@ -73,8 +73,8 @@ class QueryTest(unittest.TestCase):
       column_names = header_expected 
       )
 
-    table_expected_out = subprocess.check_output(['/bin/bash', '-c', table_expected.get_cmd_str()])
-    table_actual_out = subprocess.check_output(['/bin/bash', '-c', table_actual.get_cmd_str()])
+    table_expected_out = subprocess.check_output(['/bin/bash', '-c', table_expected.get_cmd_str(output_column_names=True)])
+    table_actual_out = subprocess.check_output(['/bin/bash', '-c', table_actual.get_cmd_str(output_column_names=True)])
     self.assertEqual(table_actual_out, table_expected_out)
 
   def test_join_two_tables(self):
@@ -93,10 +93,16 @@ class QueryTest(unittest.TestCase):
 
   def test_join_two_tables_with_sort(self):
     
-    join_condition = ['table_a.col_a', '=', 'table_b.col_b']
-    cmd_actual = Query.join(table_a, table_b, join_condition)
-    
+    q = Query(['col_a', 'col_b'], [['table_a'],['table_b']], [])
+    join_condition = [['table_a.col_b', '=', 'table_b.col_a']]
+    table_actual = q.join(self.table_a, self.table_b, join_condition)
+    cmd_actual = table_actual.get_cmd_str(output_column_names=True)
     cmd_expected = \
       "sort -t, -k 2 table_b.txt > table_b.txt.out; " + \
-      "join -t, -1 1 -2 2 table_a.txt table_b.txt.out"
+      "join -t, -1 2 -2 1 table_a.txt table_b.txt.out"
+    
+    table_expected_out = subprocess.check_output(['/bin/bash', '-c', cmd_expected])
+    table_actual_out = subprocess.check_output(['/bin/bash', '-c', cmd_actual])
+
+    self.assertEqual(table_actual_out, table_expected_out)
     

@@ -90,9 +90,9 @@ class TableTest(unittest.TestCase):
 
     table_from_cmd.sorted_by = ['col_a', 'col_b']
 
-    self.assertTrue(table_from_cmd.is_sorted_by([1]))
-    self.assertFalse(table_from_cmd.is_sorted_by([2]))
-    self.assertTrue(table_from_cmd.is_sorted_by([1,2]))
+    self.assertTrue(table_from_cmd.is_sorted_by([0]))
+    self.assertFalse(table_from_cmd.is_sorted_by([1]))
+    self.assertTrue(table_from_cmd.is_sorted_by([0,1]))
 
   def test_get_cmd_str(self):
     

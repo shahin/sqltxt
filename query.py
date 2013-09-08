@@ -90,14 +90,14 @@ class Query:
       elif var2_table_name == right_table.name:
         right_indices.append(right_table.column_idxs[var2_name])
 
-      left_indices_arg = ','.join([str(li) for li in left_indices])
-      right_indices_arg = ','.join([str(ri) for ri in right_indices])
+      left_indices_arg = ','.join([str(li + 1) for li in left_indices])
+      right_indices_arg = ','.join([str(ri + 1) for ri in right_indices])
 
     if not left_table.is_sorted_by(left_indices):
-      left_table.sort([left_table.column_names[i-1] for i in left_indices])
+      left_table.sort([left_table.column_names[i] for i in left_indices])
 
     if not right_table.is_sorted_by(right_indices):
-      right_table.sort([right_table.column_names[i-1] for i in right_indices])
+      right_table.sort([right_table.column_names[i] for i in right_indices])
 
     # join the data
     join_cmd = "join -t, -1 {0} -2 {1} <({2}) <({3})".format(
@@ -120,7 +120,7 @@ class Query:
     n_columns_left = len(left_table.column_names)
     n_columns_right = len(right_table.column_names)
 
-    join_column_names = [left_table.column_names[i-1] for i in left_indices]
+    join_column_names = [left_table.column_names[i] for i in left_indices]
     nonjoin_column_names = [left_table.column_names[i] for i in range(n_columns_left)
       if i not in left_indices]
     nonjoin_column_names += [right_table.column_names[i] for i in range(n_columns_right)

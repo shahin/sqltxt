@@ -49,9 +49,9 @@ class Table:
       col_idxs += unchanged_col_idxs
 
     reorder_cmd = 'cut -d{0} -f{1}'.format(self.delimiter, ','.
-      join(str(idx) for idx in col_idxs))
+      join(str(idx + 1) for idx in col_idxs))
 
-    self.column_names = [self.column_names[idx-1] for idx in col_idxs]
+    self.column_names = [self.column_names[idx] for idx in col_idxs]
     self.column_idxs = self._compute_column_indices()
     self.cmds.append(reorder_cmd)
 
@@ -61,7 +61,7 @@ class Table:
       return False
 
     for target_idx, source_idx in enumerate(sort_order_indices):
-      if self.column_names[source_idx-1] != self.sorted_by[target_idx]:
+      if self.column_names[source_idx] != self.sorted_by[target_idx]:
         return False
 
     return True
@@ -83,7 +83,7 @@ class Table:
       column_idxs_to_sort_by = [self.column_idxs[col_name] for col_name in col_names_to_sort_by]
 
     sort_cmd = 'sort -t{0} -k {1}'.format(self.delimiter, 
-        ','.join(str(idx) for idx in column_idxs_to_sort_by))
+        ','.join(str(idx + 1) for idx in column_idxs_to_sort_by))
     self.sorted_by = col_names_to_sort_by
     self.cmds.append(sort_cmd)
     
@@ -98,7 +98,7 @@ class Table:
       elif expr_part == 'or':
         condition_str += ' || '
       else:
-        expr_part = [ ('$' + str(self.column_idxs[token]) 
+        expr_part = [ ('$' + str(self.column_idxs[token] + 1) 
             if token in self.column_idxs else token) 
             for token in expr_part ]
         condition_str += ' '.join(expr_part)
@@ -107,7 +107,7 @@ class Table:
     if condition_str == '':
       condition_str = '1'
 
-    columns = ','.join(['$' + str(self.column_idxs[c]) for c in self.column_names])
+    columns = ','.join(['$' + str(self.column_idxs[c] + 1) for c in self.column_names])
     awk_cmd = "awk -F'{0}' 'OFS=\"{0}\" {{ if ({1}) {{ print {2} }} }}'".format(
       self.delimiter, condition_str, columns)
     self.cmds.append(awk_cmd)
@@ -134,5 +134,5 @@ class Table:
 
 
   def _compute_column_indices(self):
-    return { c:i+1 for (i,c) in enumerate(self.column_names) }
+    return { c:i for (i,c) in enumerate(self.column_names) }
   

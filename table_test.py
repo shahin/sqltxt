@@ -4,7 +4,7 @@ from table import Table
 class TableTest(unittest.TestCase):
 
   def setUp(self):
-    self.table_a = Table('table_a')
+    self.table_a = Table.from_filename('table_a')
 
   def test_select_subset(self):
     
@@ -58,14 +58,14 @@ class TableTest(unittest.TestCase):
 
   def test_get_cmd_str(self):
     
-    table_from_file = Table('table_a')
+    table_from_file = Table.from_filename('table_a')
 
     # output from a file-backed Table to STDOUT
     cmd_actual = table_from_file.get_cmd_str()
     cmd_expected = 'tail +2 table_a.txt'
     self.assertEqual(cmd_actual, cmd_expected)
 
-    table_from_cmd = Table(
+    table_from_cmd = Table.from_cmd(
       'table_a', 
       cmd = 'echo -e "1,2,3,4"', 
       column_names = ['col_a', 'col_b', 'col_c', 'col_d'])

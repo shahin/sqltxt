@@ -21,10 +21,10 @@ class Query:
     first_from_clause_tokens = self.from_clauses[0]
     if len(first_from_clause_tokens) > 1:
       # first where clause is a join clause
-      left_table = Table(first_from_clause_tokens[1])
+      left_table = Table.from_filename(first_from_clause_tokens[1])
     else:
       # first where clause is not a join clause
-      left_table = Table(first_from_clause_tokens[0])
+      left_table = Table.from_filename(first_from_clause_tokens[0])
 
     if len(self.from_clauses) > 1:
       # instantiate the right Table as the result of a Query on all tables other than
@@ -69,9 +69,7 @@ class Query:
       return left_table
     
 
-  def join(self, left_subquery_table, right_subquery_table, join_conditions):
-
-    # TODO: check sortedness of both tables
+  def join(self, left_table, right_table, join_conditions):
 
     # left and right vars are always on the respoective site of the operator
     # only equality joins supported here
@@ -84,45 +82,51 @@ class Query:
     for condition in join_conditions:
       var1_table_name, var1_name = condition[0].split('.')
 
-      if var1_table_name == left_subquery_table.name:
-        left_indices.append(left_subquery_table.column_idxs[var1_name])
-      elif var1_table_name == right_subquery_table.name:
-        right_indices.append(right_subquery_table.column_idxs[var1_name])
+      if var1_table_name == left_table.name:
+        left_indices.append(left_table.column_idxs[var1_name])
+      elif var1_table_name == right_table.name:
+        right_indices.append(right_table.column_idxs[var1_name])
 
       var2_table_name, var2_name = condition[2].split('.')
-      if var2_table_name == left_subquery_table.name:
-        left_indices.append(left_subquery_table.column_idxs[var2_name])
-      elif var2_table_name == right_subquery_table.name:
-        right_indices.append(right_subquery_table.column_idxs[var2_name])
+      if var2_table_name == left_table.name:
+        left_indices.append(left_table.column_idxs[var2_name])
+      elif var2_table_name == right_table.name:
+        right_indices.append(right_table.column_idxs[var2_name])
 
       left_indices_arg = ','.join([str(li) for li in left_indices])
       right_indices_arg = ','.join([str(ri) for ri in right_indices])
-      
+
+    if not left_table._is_sorted(left_indices):
+      left_table.sort([left_table.column_names[i-1] for i in left_indices])
+
+    if not right_table._is_sorted(right_indices):
+      right_table.sort([right_table.column_names[i-1] for i in right_indices])
+
     # join the data
     join_cmd = "join -t, -1 {0} -2 {1} <({2}) <({3})".format(
       left_indices_arg, right_indices_arg, 
-      left_subquery_table.get_cmd_str(), right_subquery_table.get_cmd_str())
+      left_table.get_cmd_str(), right_table.get_cmd_str())
 
     join_column_names = self._join_column_names(
-      left_subquery_table, right_subquery_table, left_indices, right_indices)
+      left_table, right_table, left_indices, right_indices)
 
-    join_result_table = Table(
-      'join_result',
+    join_result_table = Table.from_cmd(
+      name = 'join_result',
       cmd = join_cmd,
       column_names = join_column_names
       )
 
     return join_result_table
 
-  def _join_column_names(self, left_subquery_table, right_subquery_table, left_indices, right_indices):
+  def _join_column_names(self, left_table, right_table, left_indices, right_indices):
 
-    n_columns_left = len(left_subquery_table.column_names)
-    n_columns_right = len(right_subquery_table.column_names)
+    n_columns_left = len(left_table.column_names)
+    n_columns_right = len(right_table.column_names)
 
-    join_column_names = [left_subquery_table.column_names[i] for i in left_indices]
-    nonjoin_column_names = [left_subquery_table.column_names[i] for i in range(n_columns_left)
+    join_column_names = [left_table.column_names[i] for i in left_indices]
+    nonjoin_column_names = [left_table.column_names[i] for i in range(n_columns_left)
       if i not in left_indices]
-    nonjoin_column_names += [right_subquery_table.column_names[i] for i in range(n_columns_right)
+    nonjoin_column_names += [right_table.column_names[i] for i in range(n_columns_right)
       if i not in right_indices]
 
     join_result_column_names = join_column_names + nonjoin_column_names

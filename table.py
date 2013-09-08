@@ -1,26 +1,40 @@
 class Table:
 
-  def __init__(self, name, delimiter=',', extension='txt', cmd=None, column_names=None):
+  def __init__(self, 
+    name, delimiter = ',', cmd = None, column_names = None, is_file = False, extension = 'txt'):
 
     self.name = name
-    self.extension = extension
     self.delimiter = delimiter
-    self.sorted_by = []
-
-    # initialize as a non-materialized table
-    self.is_file = False
-    self.cmds = [cmd]
-    self.outfile_name = "{0}.{1}.out".format(name, extension)
+    self.cmds = [] if cmd == None else [cmd]
     self.column_names = column_names
+    self.is_file = is_file
+    self.extension = extension
 
-    if cmd is None:
-      # initialize as a materialized table
-      self.cmds = []
-      self.outfile_name = "{0}.{1}".format(name, extension)
-      self.column_names = self._parse_column_names()
-      self.is_file = True
+    self.sorted_by = []
+    self.outfile_name = "{0}.out".format(name)
 
     self.column_idxs = self._compute_column_indices()
+
+  @classmethod
+  def from_filename(cls, file_path, column_names = None, delimiter = ',', extension = 'txt'):
+
+    if column_names == None:
+      column_names = cls._parse_column_names(file_path + '.' + extension, delimiter)
+
+    return cls(file_path, delimiter, None, column_names, True, extension)
+
+  @classmethod
+  def from_cmd(cls, name, cmd, column_names, delimiter = ','):
+
+    return cls(name, delimiter, cmd, column_names)
+
+  @staticmethod
+  def _parse_column_names(file_path, delimiter):
+
+    with open(file_path) as table_file:
+      head = table_file.readline().rstrip()
+
+    return head.split(delimiter)
 
   def order_columns(self, col_names_in_order, drop_other_columns = False):
     
@@ -40,6 +54,17 @@ class Table:
     self.column_names = [self.column_names[idx-1] for idx in col_idxs]
     self.column_idxs = self._compute_column_indices()
     self.cmds.append(reorder_cmd)
+
+  def _is_sorted(self, sort_order_indices):
+
+    if len(self.sorted_by) < len(sort_order_indices):
+      return False
+
+    for target_idx, source_idx in enumerate(sort_order_indices):
+      if self.column_names[source_idx-1] != self.sorted_by[target_idx]:
+        return False
+
+    return True
 
   def sort(self, col_names_to_sort_by):
 
@@ -107,12 +132,6 @@ class Table:
 
     return cmd_str
 
-  def _parse_column_names(self):
-
-    with open(self.name + '.' + self.extension) as table_file:
-      head = table_file.readline().rstrip()
-
-    return head.split(self.delimiter)
 
   def _compute_column_indices(self):
     return { c:i+1 for (i,c) in enumerate(self.column_names) }

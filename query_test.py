@@ -13,8 +13,8 @@ class QueryTest(unittest.TestCase):
 3,2,4,2
 4,1,3,3"""
 
-    self.table_a = Table(
-      'table_a', 
+    self.table_a = Table.from_cmd(
+      name = 'table_a', 
       cmd = 'echo -e "{0}"'.format(table_contents), 
       column_names = table_header
       )
@@ -25,8 +25,8 @@ class QueryTest(unittest.TestCase):
 2,y
 5,z"""
 
-    self.table_b = Table(
-      'table_b', 
+    self.table_b = Table.from_cmd(
+      name = 'table_b', 
       cmd = 'echo -e "{0}"'.format(table_contents), 
       column_names = table_header
       )
@@ -50,8 +50,8 @@ class QueryTest(unittest.TestCase):
 
     contents_expected = "1,4\n2,3\n3,2\n4,1"
     header_expected = ["col_a", "col_b"]
-    table_expected = Table(
-      'expected', 
+    table_expected = Table.from_cmd(
+      name = 'expected', 
       cmd = 'echo -e "{0}"'.format(contents_expected), 
       column_names = header_expected 
       )
@@ -67,7 +67,7 @@ class QueryTest(unittest.TestCase):
 
     contents_expected = "1,4\n2,3"
     header_expected = ['col_a', 'col_b']
-    table_expected = Table(
+    table_expected = Table.from_cmd(
       'expected', 
       cmd = 'echo -e "{0}"'.format(contents_expected), 
       column_names = header_expected 
@@ -81,9 +81,9 @@ class QueryTest(unittest.TestCase):
     
     q = Query(['col_a', 'col_b'], [['table_a']], [])
 
-    table_a = Table('table_a')
-    table_b = Table('table_b')
-    join_condition = [['table_a.col_a', '=', 'table_b.COL_A']]
+    table_a = Table.from_filename('table_a')
+    table_b = Table.from_filename('table_b')
+    join_condition = [['table_a.col_a', '=', 'table_b.col_a']]
     result_table_actual = q.join(table_a, table_b, join_condition)
     cmd_actual = result_table_actual.get_cmd_str(output_column_names = True)
     
@@ -98,11 +98,11 @@ class QueryTest(unittest.TestCase):
     table_actual = q.join(self.table_a, self.table_b, join_condition)
     cmd_actual = table_actual.get_cmd_str(output_column_names=True)
     cmd_expected = \
-      "sort -t, -k 2 table_b.txt > table_b.txt.out; " + \
-      "join -t, -1 2 -2 1 table_a.txt table_b.txt.out"
+      "join -t, -1 2 -2 1 <(tail +2 table_a.txt | sort -t, -k 2) <(tail +2 table_b.txt)"
+    print(cmd_expected)
     
-    table_expected_out = subprocess.check_output(['/bin/bash', '-c', cmd_expected])
     table_actual_out = subprocess.check_output(['/bin/bash', '-c', cmd_actual])
+    table_expected_out = subprocess.check_output(['/bin/bash', '-c', cmd_expected])
 
     self.assertEqual(table_actual_out, table_expected_out)
     

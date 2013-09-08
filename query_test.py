@@ -7,11 +7,10 @@ class QueryTest(unittest.TestCase):
 
   def setUp(self):
 
-    table_header = ["col_a", "col_b", "col_c", "col_d"]
-    table_contents = """1,4,2,1
-2,3,1,4
-3,2,4,2
-4,1,3,3"""
+    table_header = ["col_a", "col_b"]
+    table_contents = """1,1
+2,3
+3,2"""
 
     self.table_a = Table.from_cmd(
       name = 'table_a', 
@@ -33,10 +32,9 @@ class QueryTest(unittest.TestCase):
 
   def test_qualify_column_names(self):
     
-    unqualified_column_names = ['col_a', 'col_c', 'col_dne']
+    unqualified_column_names = ['col_a', 'col_dne']
     names_expected = {
       'col_a': ['table_a.col_a', 'table_b.col_a'],
-      'col_c': ['table_a.col_c'],
       'col_dne': []
       }
     names_actual = Query._qualify_column_names(unqualified_column_names, [self.table_a, self.table_b])
@@ -45,11 +43,11 @@ class QueryTest(unittest.TestCase):
 
   def test_select(self):
 
-    q = Query([['table_a']], [], ['col_a', 'col_b'])
+    q = Query([['table_a']], [], ['col_b'])
     table_actual = q.generate_table()
 
-    contents_expected = "1,4\n2,3\n3,2\n4,1"
-    header_expected = ["col_a", "col_b"]
+    contents_expected = "1\n3\n2"
+    header_expected = ["col_b"]
     table_expected = Table.from_cmd(
       name = 'expected', 
       cmd = 'echo -e "{0}"'.format(contents_expected), 
@@ -62,11 +60,11 @@ class QueryTest(unittest.TestCase):
           
   def test_where(self):
 
-    q = Query([['table_a']], [['col_c', '<', '3']], ['col_a', 'col_b'])
+    q = Query([['table_a']], [['col_b', '<', '3']], ['col_a'])
     table_actual = q.generate_table()
 
-    contents_expected = "1,4\n2,3"
-    header_expected = ['col_a', 'col_b']
+    contents_expected = "1\n3"
+    header_expected = ['col_a']
     table_expected = Table.from_cmd(
       'expected', 
       cmd = 'echo -e "{0}"'.format(contents_expected), 

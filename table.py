@@ -82,8 +82,8 @@ class Table:
       self.order_columns(col_names_to_sort_by)
       column_idxs_to_sort_by = [self.column_idxs[col_name] for col_name in col_names_to_sort_by]
 
-    sort_cmd = 'sort -t{0} -k {1}'.format(self.delimiter, ','.
-      join(str(idx) for idx in column_idxs_to_sort_by))
+    sort_cmd = 'sort -t{0} -k {1}'.format(self.delimiter, 
+        ','.join(str(idx) for idx in column_idxs_to_sort_by))
     self.sorted_by = col_names_to_sort_by
     self.cmds.append(sort_cmd)
     

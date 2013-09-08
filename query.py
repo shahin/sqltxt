@@ -34,7 +34,7 @@ class Query:
       right_table = right_subquery.generate_table()
 
       if right_subquery.missing_select_columns:
-        # does the left table have these columns?
+        # we are still missing any missing columns we don't find in the left table
         self.missing_select_columns = [
           col_name for col_name in right_subquery.missing_select_columns
           if col_name not in left_table.column_names
@@ -60,9 +60,6 @@ class Query:
       if self.where_clauses:
         where_conditions = self._normalize_sql_boolean_operators(self.where_clauses)
         left_table.select_subset(where_conditions)
-      
-      #if self.order_by is not None:
-      #  table.sort()
 
       left_table.order_columns(self.column_names, drop_other_columns=True)
 
@@ -123,7 +120,7 @@ class Query:
     n_columns_left = len(left_table.column_names)
     n_columns_right = len(right_table.column_names)
 
-    join_column_names = [left_table.column_names[i] for i in left_indices]
+    join_column_names = [left_table.column_names[i-1] for i in left_indices]
     nonjoin_column_names = [left_table.column_names[i] for i in range(n_columns_left)
       if i not in left_indices]
     nonjoin_column_names += [right_table.column_names[i] for i in range(n_columns_right)

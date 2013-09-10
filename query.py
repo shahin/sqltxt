@@ -8,7 +8,7 @@ class Query:
 
     self.from_clauses = from_clauses
     self.where_clauses = where_clauses
-    self.column_names = column_names
+    self.column_names = [name.lower() for name in column_names]
 
     self.missing_select_columns = None
 

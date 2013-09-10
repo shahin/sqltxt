@@ -13,9 +13,8 @@ if __name__ == '__main__':
 
   t = SqlTokenizer()
   tokens = t.parse(sql_str)
-  print(tokens.from_clauses.asList())
 
-  q = Query(tokens.column_names.asList(), tokens.column_names.asList(), tokens.where.asList()[0][1:])
+  q = Query(tokens.from_clauses.asList(), tokens.where.asList()[0][1:], tokens.column_names.asList())
   result = q.generate_table()
-  print(result.cmd)
+  print(result.get_cmd_str(output_column_names=True))
   

@@ -41,8 +41,7 @@ class Table:
     reordered_col_idxs = [self.column_idxs[col_name] for col_name in col_names_in_order]
     unchanged_col_idxs = [
       self.column_idxs[col_name] for col_name in self.column_names
-      if col_name not in col_names_in_order
-      ]
+      if col_name not in col_names_in_order]
 
     col_idxs = reordered_col_idxs
     if not drop_other_columns:
@@ -98,9 +97,9 @@ class Table:
       elif expr_part == 'or':
         condition_str += ' || '
       else:
-        expr_part = [ ('$' + str(self.column_idxs[token] + 1) 
-            if token in self.column_idxs else token) 
-            for token in expr_part ]
+        expr_part = [
+          ('$' + str(self.column_idxs[token] + 1) if token in self.column_idxs else token)
+          for token in expr_part]
         condition_str += ' '.join(expr_part)
 
     # treat no conditions as an always-true condition
@@ -131,7 +130,6 @@ class Table:
       cmd_str += (' > ' + outfile_name)
 
     return cmd_str
-
 
   def _compute_column_indices(self):
     return { c:i for (i,c) in enumerate(self.column_names) }

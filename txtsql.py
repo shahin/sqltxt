@@ -1,3 +1,4 @@
+from sql_tokenizer import SqlTokenizer
 from query import Query
 
 if __name__ == '__main__':
@@ -11,7 +12,7 @@ if __name__ == '__main__':
   sql_str = args.sql
 
   t = SqlTokenizer()
-  tokens = t.parse(self.sql_str)
+  tokens = t.parse(sql_str)
   print(tokens.from_clauses.asList())
 
   q = Query(tokens.column_names.asList(), tokens.column_names.asList(), tokens.where.asList()[0][1:])

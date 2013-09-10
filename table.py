@@ -47,8 +47,8 @@ class Table:
     if not drop_other_columns:
       col_idxs += unchanged_col_idxs
 
-    reorder_cmd = 'cut -d{0} -f{1}'.format(self.delimiter, ','.
-      join(str(idx + 1) for idx in col_idxs))
+    reorder_cmd = "awk -F'{0}' 'OFS=\"{0}\" {{ print {1} }}'".format(
+      self.delimiter, ','.join('$' + str(idx + 1) for idx in col_idxs))
 
     self.column_names = [self.column_names[idx] for idx in col_idxs]
     self.column_idxs = self._compute_column_indices()

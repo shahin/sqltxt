@@ -12,7 +12,7 @@ class Table:
     self.name = name
     self.delimiter = delimiter
     self.cmds = [] if cmd == None else [cmd]
-    self.column_names = column_names
+    self.column_names = [col_name.lower() for col_name in column_names]
     self.is_file = is_file
     self.extension = extension
 

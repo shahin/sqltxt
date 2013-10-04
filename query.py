@@ -34,10 +34,10 @@ class Query:
     first_from_clause_tokens = self.from_clauses[0]
     if len(first_from_clause_tokens) > 1:
       # first where clause is a join clause
-      self.left_table = Table.from_filename(first_from_clause_tokens[1])
+      self.left_table = Table.from_filename(first_from_clause_tokens[1].lower())
     else:
       # first where clause is not a join clause
-      self.left_table = Table.from_filename(first_from_clause_tokens[0])
+      self.left_table = Table.from_filename(first_from_clause_tokens[0].lower())
 
     if len(self.from_clauses) > 1:
       # instantiate the right Table as the result of a Query on all tables other than
@@ -62,6 +62,15 @@ class Query:
       return joined_table
 
     else:
+
+      column_names_resolved_wildcards = []
+      for col_name in self.column_names:
+        if col_name == '*':
+          column_names_resolved_wildcards.extend(self.left_table.column_names)
+        else:
+          column_names_resolved_wildcards.append(col_name)
+
+      self.column_names = column_names_resolved_wildcards
 
       self.missing_select_columns = [col_name for col_name in self.column_names
         if col_name not in self.left_table.column_names]

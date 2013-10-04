@@ -32,7 +32,7 @@ class SqlTokenizer:
     from_tok = Keyword('from', caseless=True) 
 
     # for parsing select-from statements
-    idr = Word(alphas, alphanums + '_$').setName('identifier')
+    idr = Word(alphas + '*', alphanums + '_*$').setName('identifier')
     column_idr = Upcase(delimitedList(idr, '.', combine=True))
     column_idr_list = Group(delimitedList(column_idr))
     table_idr = Upcase(delimitedList(idr, '.', combine=True))
@@ -86,7 +86,7 @@ class SqlTokenizer:
 
     select_stmt << (
         select_tok + 
-        ( '*' | column_idr_list ).setResultsName('column_names') +
+        ( column_idr_list ).setResultsName('column_names') +
         from_tok +
         from_relation.setResultsName('from_clauses') +
         Optional( Group( CaselessLiteral("where") + where_expr ), "" ).setResultsName("where") +

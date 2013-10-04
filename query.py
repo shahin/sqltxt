@@ -3,12 +3,14 @@ from table import Table
 from copy import deepcopy
 
 class Query:
+  """Create Tables and perform operations on them."""
 
   def __init__(self, from_clauses, where_clauses, column_names = None):
+    """Instantiate a new Query from tokenized SQL clauses."""
 
     self.from_clauses = from_clauses
     self.where_clauses = where_clauses
-    self.column_names = [name.lower() for name in column_names]
+    self.column_names = [col_name.lower() for col_name in column_names]
 
     self.missing_select_columns = None
 
@@ -16,6 +18,17 @@ class Query:
     self.right_table = None
 
   def generate_table(self):
+    """Return a Table representing the result of this Query.
+
+    For Querys with no joins, this method uses Table methods to perform the standard subsetting
+    and ordering operations.
+
+    For Querys with joins across n Tables, this method 
+      1. instantiates a new sub-Query representing the query across the right-most n-1 Tables,
+      2. calls generate_table on the sub-Query, and
+      3. returns the result of the 2-way join between the left-most Table of this query and the 
+      result of the sub-Query (which is also a Table).
+    """
 
     # instantiate the left-most Table in all the where clauses
     first_from_clause_tokens = self.from_clauses[0]
@@ -64,25 +77,29 @@ class Query:
       return self.left_table
 
   def join(self, join_conditions):
+    """Return a Table representing the join of the left and right Tables of this Query."""
 
+    # find the indices of the columns used in the join conditions
     left_indices, right_indices = self._get_join_indices(join_conditions)
 
-    left_indices_arg = ','.join([str(li + 1) for li in left_indices])
-    right_indices_arg = ','.join([str(ri + 1) for ri in right_indices])
-
+    # re-sort tables if necessary
     if not self.left_table.is_sorted_by(left_indices):
       self.left_table.sort([self.left_table.column_names[i] for i in left_indices])
 
     if not self.right_table.is_sorted_by(right_indices):
       self.right_table.sort([self.right_table.column_names[i] for i in right_indices])
 
-    # join the data
+    # constract the command that will join the data
+    left_indices_arg = ','.join([str(li + 1) for li in left_indices])
+    right_indices_arg = ','.join([str(ri + 1) for ri in right_indices])
+
     join_cmd = "join -t, -1 {0} -2 {1} <({2}) <({3})".format(
       left_indices_arg, right_indices_arg, 
       self.left_table.get_cmd_str(), self.right_table.get_cmd_str())
 
     join_column_names = self._join_column_names(left_indices, right_indices)
 
+    # create a new Table representing the (non-materialized) result of the join command
     join_result_table = Table.from_cmd(
       name = 'join_result',
       cmd = join_cmd,
@@ -92,6 +109,7 @@ class Query:
     return join_result_table
 
   def _get_join_indices(self, join_conditions):
+    """Given the join conditions, return the indices of the columns used in the join."""
 
     # only equality joins supported here
     # only 'and' joins supported here
@@ -112,6 +130,7 @@ class Query:
     return left_indices, right_indices
 
   def _join_column_names(self, left_indices, right_indices):
+    """Given the indices of join columns, return the ordered column names in the joined result."""
 
     n_columns_left = len(self.left_table.column_names)
     n_columns_right = len(self.right_table.column_names)
@@ -127,6 +146,7 @@ class Query:
     return join_result_column_names
   
   def _normalize_sql_boolean_operators(self, sql_where_clauses):
+    """Given tokenized SQL where clauses, return their translations to normal boolean operators."""
 
     sql_to_bool_operators = {
         '=': '==',

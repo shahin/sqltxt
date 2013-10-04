@@ -1,4 +1,10 @@
 class Table:
+  """Translate abstract data-manipulation operations to commands that perform them.
+
+  A Table is a virtual representation of data. Operations on Tables are accumulated and
+  optimized, but a Table cannot execute its own commands. In order retrieve the data represented
+  by a Table, a second party must execute the Table's commands.
+  """
 
   def __init__(self, 
     name, delimiter = ',', cmd = None, column_names = None, is_file = False, extension = 'txt'):
@@ -17,6 +23,7 @@ class Table:
 
   @classmethod
   def from_filename(cls, file_path, column_names = None, delimiter = ',', extension = 'txt'):
+    """Given the path to a file, instantiate a Table representing that file."""
 
     if column_names == None:
       column_names = cls._parse_column_names(file_path + '.' + extension, delimiter)
@@ -25,11 +32,13 @@ class Table:
 
   @classmethod
   def from_cmd(cls, name, cmd, column_names, delimiter = ','):
+    """Given a command, instantiate a Table representing the output of that command."""
 
     return cls(name, delimiter, cmd, column_names)
 
   @staticmethod
   def _parse_column_names(file_path, delimiter):
+    """Return a list of column headers found in the first line of a file."""
 
     with open(file_path) as table_file:
       head = table_file.readline().rstrip()
@@ -37,6 +46,7 @@ class Table:
     return head.split(delimiter)
 
   def order_columns(self, col_names_in_order, drop_other_columns = False):
+    """Rearrange the columns of this Table."""
     
     reordered_col_idxs = [self.column_idxs[col_name] for col_name in col_names_in_order]
     unchanged_col_idxs = [
@@ -55,6 +65,7 @@ class Table:
     self.cmds.append(reorder_cmd)
 
   def is_sorted_by(self, sort_order_indices):
+    """Return true if this Table's rows are sorted by columns at the given indices."""
 
     if len(self.sorted_by) < len(sort_order_indices):
       return False
@@ -66,6 +77,7 @@ class Table:
     return True
 
   def sort(self, col_names_to_sort_by):
+    """Sort the rows of this Table by the given columns."""
 
     # if this table is already sorted by the requested sort order, do nothing
     if len(col_names_to_sort_by) <= len(self.sorted_by):
@@ -88,6 +100,7 @@ class Table:
     
 
   def select_subset(self, conditions):
+    """Subset the rows of this Table to rows that satisfy the given conditions."""
 
     # translate a list of boolean conditions to awk syntax
     condition_str = ''
@@ -102,7 +115,7 @@ class Table:
           for token in expr_part]
         condition_str += ' '.join(expr_part)
 
-    # treat no conditions as an always-true condition
+    # treat no-conditions as an always-true condition
     if condition_str == '':
       condition_str = '1'
 
@@ -112,6 +125,7 @@ class Table:
     self.cmds.append(awk_cmd)
 
   def get_cmd_str(self, outfile_name = None, output_column_names = False):
+    """Return a string of commands whose output is the contents of this Table.""" 
 
     cmds = self.cmds
 
@@ -132,5 +146,6 @@ class Table:
     return cmd_str
 
   def _compute_column_indices(self):
+    """Return a hash of column indices keyed by column name."""
     return { c:i for (i,c) in enumerate(self.column_names) }
   

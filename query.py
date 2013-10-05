@@ -10,7 +10,7 @@ class Query:
 
     self.from_clauses = from_clauses
     self.where_clauses = where_clauses
-    self.column_names = [col_name.lower() for col_name in column_names]
+    self.column_names = [tuple(col_name.upper().split('.')) for col_name in column_names]
 
     self.missing_select_columns = None
 
@@ -34,10 +34,10 @@ class Query:
     first_from_clause_tokens = self.from_clauses[0]
     if len(first_from_clause_tokens) > 1:
       # first where clause is a join clause
-      self.left_table = Table.from_filename(first_from_clause_tokens[1].lower())
+      self.left_table = Table.from_filename(first_from_clause_tokens[1].upper())
     else:
       # first where clause is not a join clause
-      self.left_table = Table.from_filename(first_from_clause_tokens[0].lower())
+      self.left_table = Table.from_filename(first_from_clause_tokens[0].upper())
 
     if len(self.from_clauses) > 1:
       # instantiate the right Table as the result of a Query on all tables other than
@@ -63,6 +63,7 @@ class Query:
 
     else:
 
+      # replace wildcards in the select list with table column names
       column_names_resolved_wildcards = []
       for col_name in self.column_names:
         if col_name == '*':
@@ -72,13 +73,16 @@ class Query:
 
       self.column_names = column_names_resolved_wildcards
 
+      # identify column names in the Query's select list that do not exist in its tables
       self.missing_select_columns = [col_name for col_name in self.column_names
         if col_name not in self.left_table.column_names]
 
+      # apply where conditions via a Table method
       if self.where_clauses:
         where_conditions = self._normalize_sql_boolean_operators(self.where_clauses)
         self.left_table.select_subset(where_conditions)
 
+      # order result columns to match the select list via a Table method
       self.left_table.order_columns(
           [col for col in self.column_names if col not in self.missing_select_columns], 
           drop_other_columns=True)

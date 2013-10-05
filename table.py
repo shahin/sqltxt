@@ -12,7 +12,7 @@ class Table:
     self.name = name
     self.delimiter = delimiter
     self.cmds = [] if cmd == None else [cmd]
-    self.column_names = [col_name.lower() for col_name in column_names]
+    self.column_names = [tuple([col_name.upper()]) for col_name in column_names]
     self.is_file = is_file
     self.extension = extension
 
@@ -137,7 +137,9 @@ class Table:
 
     # write column names
     if output_column_names:
-      cmd_str = 'echo "{0}"; '.format(','.join(self.column_names)) + cmd_str
+      cmd_str = 'echo "{0}"; '.format(
+          ','.join([name[-1] for name in self.column_names])
+          ) + cmd_str
 
     # add output redirection to file
     if outfile_name is not None:

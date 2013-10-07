@@ -10,14 +10,13 @@ class Table:
   """
 
   def __init__(self, 
-    name, delimiter = ',', cmd = None, column_names = None, is_file = False, extension = 'txt'):
+    name, delimiter = ',', cmd = None, columns = None, is_file = False, extension = 'txt'):
 
     self.name = name
     self.delimiter = delimiter
     self.cmds = [] if cmd == None else [cmd]
 
-    self.column_names = column_names
-    self.columns = [Column(column_name) for column_name in self.column_names]
+    self.columns = columns
     self.columns = self._qualify_columns(self.columns)
 
     self.is_file = is_file
@@ -28,20 +27,32 @@ class Table:
 
     self.column_idxs = self._compute_column_indices()
 
+  @property 
+  def column_names(self):
+    return [col.name for col in self.columns]
+
   @classmethod
-  def from_filename(cls, file_path, column_names = None, delimiter = ',', extension = 'txt'):
+  def from_filename(cls, file_path, columns = None, delimiter = ',', extension = 'txt'):
     """Given the path to a file, instantiate a Table representing that file."""
 
-    if column_names == None:
-      column_names = cls._parse_column_names(file_path + '.' + extension, delimiter)
+    if columns == None:
+      columns = cls._parse_column_names(file_path + '.' + extension, delimiter)
 
-    return cls(file_path, delimiter, None, column_names, True, extension)
+    for idx, col in enumerate(columns):
+      if not isinstance(col, Column):
+        columns[idx] = Column(col)
+
+    return cls(file_path, delimiter, None, columns, True, extension)
 
   @classmethod
-  def from_cmd(cls, name, cmd, column_names, delimiter = ','):
+  def from_cmd(cls, name, cmd, columns, delimiter = ','):
     """Given a command, instantiate a Table representing the output of that command."""
 
-    return cls(name, delimiter, cmd, column_names)
+    for idx, col in enumerate(columns):
+      if not isinstance(col, Column):
+        columns[idx] = Column(col)
+
+    return cls(name, delimiter, cmd, columns)
 
   @staticmethod
   def _parse_column_names(file_path, delimiter):
@@ -56,15 +67,26 @@ class Table:
     """Set the table name attribute to this Table's name for any column that doesn't already 
     have one."""
 
-    for ci in range(len(columns_to_qualify)):
-      if not columns_to_qualify[ci].table:
-        self._qualify_column(columns_to_qualify[ci])
+    for idx, col in enumerate(columns_to_qualify):
+      if not col.table:
+        columns_to_qualify[idx] = self._qualify_column(col)
 
     return columns_to_qualify
 
-  def _qualify_column(self, column_to_qualify):
-    column_to_qualify.table = self.name
-    return column_to_qualify
+  def _qualify_column(self, col):
+
+    matching_cols = col.matching(self.columns)
+    if len(matching_cols) > 1:
+      raise "Duplicate matches for column '{0}' on table {1}".format(col, self.name)
+    elif len(matching_cols) == 1:
+      col = matching_cols[0]
+      if not col.table:
+        col.table = self.name
+      return col
+
+    col.table = self.name
+    return col
+
 
   def order_columns(self, columns_in_order, drop_other_columns = False):
     """Rearrange the columns of this Table."""
@@ -177,6 +199,6 @@ class Table:
     return cmd_str
 
   def _compute_column_indices(self):
-    """Return a hash of column indices keyed by column name."""
+    """Return a hash of column indices keyed by column."""
     return { c:i for (i,c) in enumerate(self.columns) }
   

@@ -15,7 +15,7 @@ class QueryTest(unittest.TestCase):
     self.table_a = Table.from_cmd(
       name = 'table_a', 
       cmd = 'echo -e "{0}"'.format(table_contents), 
-      column_names = table_header
+      columns = table_header
       )
 
     table_header = ["col_a", "col_z"]
@@ -27,7 +27,7 @@ class QueryTest(unittest.TestCase):
     self.table_b = Table.from_cmd(
       name = 'table_b', 
       cmd = 'echo -e "{0}"'.format(table_contents), 
-      column_names = table_header
+      columns = table_header
       )
 
   def test_select(self):
@@ -38,7 +38,7 @@ class QueryTest(unittest.TestCase):
     table_expected = Table.from_cmd(
       name = 'expected', 
       cmd = 'echo -e "1\n3\n2"',
-      column_names = ["col_b"] 
+      columns = ["col_b"] 
       )
 
     table_expected_out = subprocess.check_output(['/bin/bash', '-c', table_expected.get_cmd_str(output_column_names=True)])
@@ -53,7 +53,7 @@ class QueryTest(unittest.TestCase):
     table_expected = Table.from_cmd(
       'expected', 
       cmd = 'echo -e "1\n3"',
-      column_names = ['col_a'] 
+      columns = ['col_a'] 
       )
 
     table_expected_out = subprocess.check_output(['/bin/bash', '-c', table_expected.get_cmd_str(output_column_names=True)])
@@ -83,7 +83,7 @@ class QueryTest(unittest.TestCase):
     table_expected = Table.from_cmd(
       name = 'table_a', 
       cmd = 'echo -e "1,1,w\n2,3,x\n2,3,y"',
-      column_names = ['col_a','col_b','col_z']
+      columns = ['col_a','col_b','col_z']
       )
 
     table_expected_out = subprocess.check_output(['/bin/bash', '-c', table_expected.get_cmd_str(output_column_names=True)])
@@ -103,6 +103,7 @@ class QueryTest(unittest.TestCase):
     cmd_expected = \
       'echo "col_b,col_a,col_z"; ' + \
       "join -t, -1 2 -2 1 <(tail +2 table_a.txt | sort -t, -k 2) <(tail +2 table_b.txt)"
+    self.assertEqual(cmd_actual, cmd_expected)
     
     table_actual_out = subprocess.check_output(['/bin/bash', '-c', cmd_actual])
     table_expected_out = subprocess.check_output(['/bin/bash', '-c', cmd_expected])

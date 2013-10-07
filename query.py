@@ -6,8 +6,10 @@ from copy import deepcopy
 class Query:
   """Create Tables and perform operations on them."""
 
-  def __init__(self, from_clauses, where_clauses, column_names = None):
+  def __init__(self, from_clauses, where_clauses, column_names = None, is_top_level = True):
     """Instantiate a new Query from tokenized SQL clauses."""
+
+    self.is_top_level = is_top_level
 
     self.from_clauses = from_clauses
     self.where_clauses = where_clauses
@@ -45,7 +47,7 @@ class Query:
       # instantiate the right Table as the result of a Query on all tables other than
       # the left-most
 
-      right_subquery = Query(self.from_clauses[1:], [], self.column_names)
+      right_subquery = Query(self.from_clauses[1:], [], self.column_names, is_top_level = False)
       self.right_table = right_subquery.generate_table()
 
       if right_subquery.missing_select_columns:
@@ -61,6 +63,11 @@ class Query:
         where_conditions = self._normalize_sql_boolean_operators(self.where_clauses)
         joined_table.select_subset(where_conditions)
       
+      # order result columns to match the select list via a Table method
+      joined_table.order_columns(
+          [col for col in self.columns if col not in self.missing_select_columns], 
+          drop_other_columns = self.is_top_level)
+
       return joined_table
 
     else:
@@ -87,7 +94,7 @@ class Query:
       # order result columns to match the select list via a Table method
       self.left_table.order_columns(
           [col for col in self.columns if col not in self.missing_select_columns], 
-          drop_other_columns=True)
+          drop_other_columns = self.is_top_level)
 
       return self.left_table
 
@@ -118,7 +125,7 @@ class Query:
     join_result_table = Table.from_cmd(
       name = 'join_result',
       cmd = join_cmd,
-      column_names = join_column_names
+      columns = join_column_names
       )
 
     return join_result_table
@@ -147,18 +154,18 @@ class Query:
   def _join_column_names(self, left_indices, right_indices):
     """Given the indices of join columns, return the ordered column names in the joined result."""
 
-    n_columns_left = len(self.left_table.column_names)
-    n_columns_right = len(self.right_table.column_names)
+    n_columns_left = len(self.left_table.columns)
+    n_columns_right = len(self.right_table.columns)
 
-    join_column_names = [self.left_table.column_names[i] for i in left_indices]
-    nonjoin_column_names = [self.left_table.column_names[i] for i in range(n_columns_left)
+    join_columns = [self.left_table.columns[i] for i in left_indices]
+    nonjoin_columns = [self.left_table.columns[i] for i in range(n_columns_left) 
       if i not in left_indices]
-    nonjoin_column_names += [self.right_table.column_names[i] for i in range(n_columns_right)
+    nonjoin_columns += [self.right_table.columns[i] for i in range(n_columns_right)
       if i not in right_indices]
 
-    join_result_column_names = join_column_names + nonjoin_column_names
+    join_result_columns = join_columns + nonjoin_columns
 
-    return join_result_column_names
+    return join_result_columns
   
   def _normalize_sql_boolean_operators(self, sql_where_clauses):
     """Given tokenized SQL where clauses, return their translations to normal boolean operators."""

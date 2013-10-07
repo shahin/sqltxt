@@ -14,7 +14,7 @@ class TableTest(unittest.TestCase):
     self.table_a = Table.from_cmd(
       name = 'table_a', 
       cmd = 'echo -e "{0}"'.format(table_contents), 
-      column_names = table_header
+      columns = table_header
       )
 
     table_header = ["col_a", "col_b"]
@@ -26,8 +26,22 @@ class TableTest(unittest.TestCase):
     self.table_b = Table.from_cmd(
       name = 'table_b', 
       cmd = 'echo -e "{0}"'.format(table_contents), 
-      column_names = table_header
+      columns = table_header
       )
+
+  def test_qualify_column(self):
+
+    result_actual = self.table_b._qualify_column(Column('col_a'))
+    result_expected = Column('table_b.col_a')
+    self.assertEqual(result_actual, result_expected)
+
+    result_actual = self.table_b._qualify_column(Column('table_b.col_a'))
+    result_expected = Column('table_b.col_a')
+    self.assertEqual(result_actual, result_expected)
+
+    result_actual = self.table_b._qualify_column(Column('table_a.col_a'))
+    result_expected = Column('table_a.col_a')
+    self.assertNotEqual(result_actual, result_expected)
 
   def test_select_subset(self):
     
@@ -91,7 +105,7 @@ class TableTest(unittest.TestCase):
     table_from_cmd = Table.from_cmd(
       name = 'table_a', 
       cmd = 'echo -e ""',
-      column_names = ['col_a', 'col_b'])
+      columns = ['col_a', 'col_b'])
 
     table_from_cmd.sorted_by = [Column('table_a.col_a'), Column('table_a.col_b')]
 
@@ -111,7 +125,7 @@ class TableTest(unittest.TestCase):
     table_from_cmd = Table.from_cmd(
       'table_a', 
       cmd = 'echo -e "1,2,3,4"', 
-      column_names = ['col_a', 'col_b', 'col_c', 'col_d'])
+      columns = ['col_a', 'col_b', 'col_c', 'col_d'])
 
     # output from a command-backed Table to STDOUT
     cmd_actual = table_from_cmd.get_cmd_str()

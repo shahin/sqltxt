@@ -63,7 +63,7 @@ class QueryTest(unittest.TestCase):
   def test_join_column_names(self):
 
     # TODO: decide whether to call generate_table from constructor
-    # TODO: see if there's a more concise way to initialize these join queries; fixtures?
+    # TODO: find a more concise way to initialize these join queries; fixtures?
     q = Query(
       from_clauses = [['table_a'],[['inner','join'],'table_b','on',['table_a.col_a', '=', 'table_b.col_a']]], 
       where_clauses = [], 

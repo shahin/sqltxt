@@ -33,7 +33,7 @@ class SqlTokenizer:
 
     # for parsing select-from statements
     idr = Word(alphas + '*', alphanums + '_*$').setName('identifier')
-    column_idr = Upcase(delimitedList(idr, '.', combine=True))
+    column_idr = delimitedList(idr, '.', combine=True)
     column_idr_list = Group(delimitedList(column_idr))
     table_idr = Upcase(delimitedList(idr, '.', combine=True))
     table_idr_list = Group(delimitedList(table_idr))

@@ -1,3 +1,6 @@
+from column import Column
+import re
+
 class Table:
   """Translate abstract data-manipulation operations to commands that perform them.
 
@@ -12,7 +15,11 @@ class Table:
     self.name = name
     self.delimiter = delimiter
     self.cmds = [] if cmd == None else [cmd]
-    self.column_names = [tuple([col_name.upper()]) for col_name in column_names]
+
+    self.column_names = column_names
+    self.columns = [Column(column_name) for column_name in self.column_names]
+    self.columns = self._qualify_columns(self.columns)
+
     self.is_file = is_file
     self.extension = extension
 
@@ -45,13 +52,29 @@ class Table:
 
     return head.split(delimiter)
 
-  def order_columns(self, col_names_in_order, drop_other_columns = False):
+  def _qualify_columns(self, columns_to_qualify):
+    """Set the table name attribute to this Table's name for any column that doesn't already 
+    have one."""
+
+    for ci in range(len(columns_to_qualify)):
+      if not columns_to_qualify[ci].table:
+        self._qualify_column(columns_to_qualify[ci])
+
+    return columns_to_qualify
+
+  def _qualify_column(self, column_to_qualify):
+    column_to_qualify.table = self.name
+    return column_to_qualify
+
+  def order_columns(self, columns_in_order, drop_other_columns = False):
     """Rearrange the columns of this Table."""
+
+    columns_in_order = self._qualify_columns(columns_in_order)
     
-    reordered_col_idxs = [self.column_idxs[col_name] for col_name in col_names_in_order]
+    reordered_col_idxs = [self.column_idxs[col] for col in columns_in_order]
     unchanged_col_idxs = [
-      self.column_idxs[col_name] for col_name in self.column_names
-      if col_name not in col_names_in_order]
+      self.column_idxs[col] for col in self.columns
+      if col not in columns_in_order]
 
     col_idxs = reordered_col_idxs
     if not drop_other_columns:
@@ -60,7 +83,7 @@ class Table:
     reorder_cmd = "awk -F'{0}' 'OFS=\"{0}\" {{ print {1} }}'".format(
       self.delimiter, ','.join('$' + str(idx + 1) for idx in col_idxs))
 
-    self.column_names = [self.column_names[idx] for idx in col_idxs]
+    self.columns = [self.columns[idx] for idx in col_idxs]
     self.column_idxs = self._compute_column_indices()
     self.cmds.append(reorder_cmd)
 
@@ -71,31 +94,33 @@ class Table:
       return False
 
     for target_idx, source_idx in enumerate(sort_order_indices):
-      if self.column_names[source_idx] != self.sorted_by[target_idx]:
+      if self.columns[source_idx] != self.sorted_by[target_idx]:
         return False
 
     return True
 
-  def sort(self, col_names_to_sort_by):
+  def sort(self, columns_to_sort_by):
     """Sort the rows of this Table by the given columns."""
 
+    columns_to_sort_by = self._qualify_columns(columns_to_sort_by)
+
     # if this table is already sorted by the requested sort order, do nothing
-    if len(col_names_to_sort_by) <= len(self.sorted_by):
-      if col_names_to_sort_by == self.sorted_by[0:len(col_names_to_sort_by)]:
+    if len(columns_to_sort_by) <= len(self.sorted_by):
+      if columns_to_sort_by == self.sorted_by[0:len(columns_to_sort_by)]:
         return
 
-    column_idxs_to_sort_by = [self.column_idxs[col_name] for col_name in col_names_to_sort_by]
+    column_idxs_to_sort_by = [self.column_idxs[col] for col in columns_to_sort_by]
 
     # sort-by columns must be adjacent, so reorder them if they are not adjacent
     first_idx = column_idxs_to_sort_by[0]
     last_idx = column_idxs_to_sort_by[-1]
     if column_idxs_to_sort_by != list(range(first_idx, last_idx+1)):
-      self.order_columns(col_names_to_sort_by)
-      column_idxs_to_sort_by = [self.column_idxs[col_name] for col_name in col_names_to_sort_by]
+      self.order_columns(columns_to_sort_by)
+      column_idxs_to_sort_by = [self.column_idxs[col] for col in columns_to_sort_by]
 
     sort_cmd = 'sort -t{0} -k {1}'.format(self.delimiter, 
         ','.join(str(idx + 1) for idx in column_idxs_to_sort_by))
-    self.sorted_by = col_names_to_sort_by
+    self.sorted_by = columns_to_sort_by
     self.cmds.append(sort_cmd)
     
 
@@ -110,8 +135,12 @@ class Table:
       elif expr_part == 'or':
         condition_str += ' || '
       else:
+        # treat any PostgreSQL-valid identifier as a column
         expr_part = [
-          ('$' + str(self.column_idxs[token] + 1) if token in self.column_idxs else token)
+          ('$' + str(self.column_idxs[self._qualify_column(Column(token))] + 1) 
+            if re.match('^[a-zA-Z_][a-zA-Z0-9_.]*$', token) 
+            else token
+            )
           for token in expr_part]
         condition_str += ' '.join(expr_part)
 
@@ -119,7 +148,7 @@ class Table:
     if condition_str == '':
       condition_str = '1'
 
-    columns = ','.join(['$' + str(self.column_idxs[c] + 1) for c in self.column_names])
+    columns = ','.join(['$' + str(self.column_idxs[c] + 1) for c in self.columns])
     awk_cmd = "awk -F'{0}' 'OFS=\"{0}\" {{ if ({1}) {{ print {2} }} }}'".format(
       self.delimiter, condition_str, columns)
     self.cmds.append(awk_cmd)
@@ -138,7 +167,7 @@ class Table:
     # write column names
     if output_column_names:
       cmd_str = 'echo "{0}"; '.format(
-          ','.join([name[-1] for name in self.column_names])
+          ','.join([str(col) for col in self.columns])
           ) + cmd_str
 
     # add output redirection to file
@@ -149,5 +178,5 @@ class Table:
 
   def _compute_column_indices(self):
     """Return a hash of column indices keyed by column name."""
-    return { c:i for (i,c) in enumerate(self.column_names) }
+    return { c:i for (i,c) in enumerate(self.columns) }
   

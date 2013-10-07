@@ -1,4 +1,5 @@
 from sql_tokenizer import SqlTokenizer
+from column import Column
 from table import Table
 from copy import deepcopy
 
@@ -10,7 +11,8 @@ class Query:
 
     self.from_clauses = from_clauses
     self.where_clauses = where_clauses
-    self.column_names = [tuple(col_name.upper().split('.')) for col_name in column_names]
+    self.column_names = column_names
+    self.columns = [Column(column_name) for column_name in self.column_names]
 
     self.missing_select_columns = None
 
@@ -49,10 +51,10 @@ class Query:
       if right_subquery.missing_select_columns:
         # we are still missing any missing columns we don't find in the left table
         self.missing_select_columns = [
-          col_name for col_name in right_subquery.missing_select_columns
-          if col_name not in self.left_table.column_names
+          col for col in right_subquery.missing_select_columns
+          if not col.matching(self.left_table.columns)
           ]
-        
+
       joined_table = self.join(right_subquery.from_clauses[0][3:])
 
       if self.where_clauses:
@@ -64,18 +66,18 @@ class Query:
     else:
 
       # replace wildcards in the select list with table column names
-      column_names_resolved_wildcards = []
-      for col_name in self.column_names:
-        if col_name == '*':
-          column_names_resolved_wildcards.extend(self.left_table.column_names)
+      columns_resolved_wildcards = []
+      for col in self.columns:
+        if col.name == '*':
+          columns_resolved_wildcards.extend(self.left_table.columns)
         else:
-          column_names_resolved_wildcards.append(col_name)
+          columns_resolved_wildcards.append(col)
 
-      self.column_names = column_names_resolved_wildcards
+      self.columns = columns_resolved_wildcards
 
       # identify column names in the Query's select list that do not exist in its tables
-      self.missing_select_columns = [col_name for col_name in self.column_names
-        if col_name not in self.left_table.column_names]
+      self.missing_select_columns = [col for col in self.columns
+        if not col.matching(self.left_table.columns)]
 
       # apply where conditions via a Table method
       if self.where_clauses:
@@ -84,7 +86,7 @@ class Query:
 
       # order result columns to match the select list via a Table method
       self.left_table.order_columns(
-          [col for col in self.column_names if col not in self.missing_select_columns], 
+          [col for col in self.columns if col not in self.missing_select_columns], 
           drop_other_columns=True)
 
       return self.left_table
@@ -97,10 +99,10 @@ class Query:
 
     # re-sort tables if necessary
     if not self.left_table.is_sorted_by(left_indices):
-      self.left_table.sort([self.left_table.column_names[i] for i in left_indices])
+      self.left_table.sort([self.left_table.columns[i] for i in left_indices])
 
     if not self.right_table.is_sorted_by(right_indices):
-      self.right_table.sort([self.right_table.column_names[i] for i in right_indices])
+      self.right_table.sort([self.right_table.columns[i] for i in right_indices])
 
     # constract the command that will join the data
     left_indices_arg = ','.join([str(li + 1) for li in left_indices])
@@ -134,11 +136,11 @@ class Query:
 
       for join_var in join_vars:
 
-        table_name, var_name = join_var.split('.')
-        if table_name == self.left_table.name:
-          left_indices.append(self.left_table.column_idxs[var_name])
-        elif table_name == self.right_table.name:
-          right_indices.append(self.right_table.column_idxs[var_name])
+        join_col = Column(join_var)
+        if join_col.table == self.left_table.name:
+          left_indices.append(self.left_table.column_idxs[join_col])
+        elif join_col.table == self.right_table.name:
+          right_indices.append(self.right_table.column_idxs[join_col])
 
     return left_indices, right_indices
 

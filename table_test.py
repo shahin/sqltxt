@@ -1,5 +1,6 @@
 import unittest
 from table import Table 
+from column import Column
 
 class TableTest(unittest.TestCase):
 
@@ -41,7 +42,7 @@ class TableTest(unittest.TestCase):
 
   def test_reorder(self):
 
-    col_order = ['col_b','col_a']
+    col_order = [Column('col_b'), Column('col_a')]
     self.table_a.order_columns(col_order)
 
     cmds_actual = self.table_a.cmds
@@ -50,7 +51,7 @@ class TableTest(unittest.TestCase):
 
   def test_sort(self):
     
-    sort_by_cols = ['col_a','col_b']
+    sort_by_cols = [Column('col_a'), Column('col_b')]
     self.table_a.sort(sort_by_cols)
 
     cmds_actual = self.table_a.cmds
@@ -61,7 +62,7 @@ class TableTest(unittest.TestCase):
 
   def test_sort_with_reordered_columns(self):
     
-    sort_by_cols = ['col_b','col_a']
+    sort_by_cols = [Column('col_b'), Column('col_a')]
     self.table_a.sort(sort_by_cols)
 
     cmds_actual = self.table_a.cmds
@@ -72,10 +73,10 @@ class TableTest(unittest.TestCase):
 
   def test_reorder_compose_sort(self):
 
-    sort_by_cols = ['col_b','col_a']
+    sort_by_cols = [Column('col_b'), Column('col_a')]
     self.table_a.sort(sort_by_cols)
 
-    col_order = ['col_a','col_b']
+    col_order = [Column('col_a'), Column('col_b')]
     self.table_a.order_columns(col_order)
 
     cmds_actual = self.table_a.cmds
@@ -92,7 +93,7 @@ class TableTest(unittest.TestCase):
       cmd = 'echo -e ""',
       column_names = ['col_a', 'col_b'])
 
-    table_from_cmd.sorted_by = ['col_a', 'col_b']
+    table_from_cmd.sorted_by = [Column('table_a.col_a'), Column('table_a.col_b')]
 
     self.assertTrue(table_from_cmd.is_sorted_by([0]))
     self.assertFalse(table_from_cmd.is_sorted_by([1]))

@@ -1,4 +1,5 @@
 from column import Column
+import logging
 import re
 
 class Table:
@@ -92,6 +93,13 @@ class Table:
     """Rearrange the columns of this Table."""
 
     columns_in_order = self._qualify_columns(columns_in_order)
+
+    if (columns_in_order == self.columns) or (
+      columns_in_order == self.columns[0:len(columns_in_order)] and not drop_other_columns):
+      logging.debug('Columns already in order {0}'.format(self.columns))
+      return
+    logging.debug('Current column order of {0} is {1}'.format(self.name, self.columns))
+    logging.debug('Reordering {0} columns to {1}'.format(self.name, columns_in_order))
     
     reordered_col_idxs = [self.column_idxs[col] for col in columns_in_order]
     unchanged_col_idxs = [
@@ -130,6 +138,7 @@ class Table:
     if len(columns_to_sort_by) <= len(self.sorted_by):
       if columns_to_sort_by == self.sorted_by[0:len(columns_to_sort_by)]:
         return
+    logging.debug('Sorting {0} by {1}'.format(self.name, columns_to_sort_by))
 
     column_idxs_to_sort_by = [self.column_idxs[col] for col in columns_to_sort_by]
 

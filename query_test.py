@@ -97,12 +97,12 @@ class QueryTest(unittest.TestCase):
     q = Query(
       from_clauses = [['table_a'],[['inner','join'],'table_b','on',['table_a.col_b', '=', 'table_b.col_a']]], 
       where_clauses = [], 
-      column_names = ['col_a', 'col_b', 'col_z'])
+      column_names = ['col_b', 'col_a', 'col_z'])
     table_actual = q.generate_table()
     cmd_actual = table_actual.get_cmd_str(output_column_names=True)
     cmd_expected = \
       'echo "col_b,col_a,col_z"; ' + \
-      "join -t, -1 2 -2 1 <(tail +2 table_a.txt | sort -t, -k 2) <(tail +2 table_b.txt)"
+      "join -t, -1 2 -2 1 <(tail +2 TABLE_A.txt | sort -t, -k 2) <(tail +2 TABLE_B.txt | sort -t, -k 1)"
     self.assertEqual(cmd_actual, cmd_expected)
     
     table_actual_out = subprocess.check_output(['/bin/bash', '-c', cmd_actual])

@@ -1,10 +1,12 @@
 from sql_tokenizer import SqlTokenizer
 from column import Column
 from table import Table
-from copy import deepcopy
+import logging
 
 class Query:
   """Create Tables and perform operations on them."""
+
+  LOG = logging.getLogger(__name__)
 
   def __init__(self, from_clauses, where_clauses, column_names = None, is_top_level = True):
     """Instantiate a new Query from tokenized SQL clauses."""
@@ -50,6 +52,7 @@ class Query:
       right_subquery = Query(self.from_clauses[1:], [], self.column_names, is_top_level = False)
       self.right_table = right_subquery.generate_table()
 
+      self.missing_select_columns = []
       if right_subquery.missing_select_columns:
         # we are still missing any missing columns we don't find in the left table
         self.missing_select_columns = [
@@ -58,6 +61,16 @@ class Query:
           ]
 
       joined_table = self.join(right_subquery.from_clauses[0][3:])
+
+      # replace wildcards in the select list with table column names
+      columns_resolved_wildcards = []
+      for col in self.columns:
+        if col.name == '*':
+          columns_resolved_wildcards.extend(joined_table.columns)
+        else:
+          columns_resolved_wildcards.append(col)
+
+      self.columns = columns_resolved_wildcards
 
       if self.where_clauses:
         where_conditions = self._normalize_sql_boolean_operators(self.where_clauses)
@@ -100,6 +113,9 @@ class Query:
 
   def join(self, join_conditions):
     """Return a Table representing the join of the left and right Tables of this Query."""
+
+    self.LOG.debug('Performing join on ({0})'.format(
+      ', '.join([' '.join(c) for c in join_conditions])))
 
     # find the indices of the columns used in the join conditions
     left_indices, right_indices = self._get_join_indices(join_conditions)
@@ -144,9 +160,9 @@ class Query:
       for join_var in join_vars:
 
         join_col = Column(join_var)
-        if join_col.table == self.left_table.name:
+        if join_col.table_name == self.left_table.name:
           left_indices.append(self.left_table.column_idxs[join_col])
-        elif join_col.table == self.right_table.name:
+        elif join_col.table_name == self.right_table.name:
           right_indices.append(self.right_table.column_idxs[join_col])
 
     return left_indices, right_indices
@@ -163,7 +179,20 @@ class Query:
     nonjoin_columns += [self.right_table.columns[i] for i in range(n_columns_right)
       if i not in right_indices]
 
+    # TODO: need columns that we join on to have multiple column table qualifiers so that
+    # we can apply where conditions to columns that have multiple table parents, e.g.
+    # table_a join table_b on (table_a.col_a = table_b.col_a) where table_b.col_a = 2
+    # 'where' is applied after the join, but by then, table_b.col_a no longer exists (although
+    # table_a.col_a still exists)
+    # options:
+    # 1. mutliple column qualifiers as described above
+    # 2. re-qualify all table columns under the joined table's name, and re-qualify any applied
+    # statements using that joined table's name
+    # 3. re-qualify all table columns under the joined table's name which includes ancestor
+    # table info, then do name matching against qualified columns in select statements
     join_result_columns = join_columns + nonjoin_columns
+    self.LOG.debug('Resolved join result column names as [{0}]'.format(
+      ', '.join([repr(c) for c in join_result_columns])))
 
     return join_result_columns
   

@@ -10,6 +10,9 @@ class Table:
   by a Table, a second party must execute the Table's commands.
   """
 
+  VALID_IDENTIFIER_REGEX = '^[a-zA-Z_][a-zA-Z0-9_.]*$'
+  LOG = logging.getLogger(__name__)
+
   def __init__(self, 
     name, delimiter = ',', cmd = None, columns = None, is_file = False, extension = 'txt'):
 
@@ -34,7 +37,13 @@ class Table:
 
   @classmethod
   def from_filename(cls, file_path, columns = None, delimiter = ',', extension = 'txt'):
-    """Given the path to a file, instantiate a Table representing that file."""
+    """Given the path to a file, instantiate a Table representing that file.
+    
+    :param file_path: a string containing the path to the file
+    :param columns: an exhaustive list of column names or Column objects on this table
+    :param delimiter: the column delimiter for this table; defaults to ','
+    :param extension: a string containing the file extension; defaults to 'txt'
+    """
 
     if columns == None:
       columns = cls._parse_column_names(file_path + '.' + extension, delimiter)
@@ -47,7 +56,13 @@ class Table:
 
   @classmethod
   def from_cmd(cls, name, cmd, columns, delimiter = ','):
-    """Given a command, instantiate a Table representing the output of that command."""
+    """Given a command, instantiate a Table representing the output of that command.
+    
+    :param name: the name of the table
+    :param cmd: a string of commands whose execution materializes this table
+    :param columns: an exhaustive list of column names or Column objects on this table
+    :param delimiter: the column delimiter for this table; defaults to ','
+    """
 
     for idx, col in enumerate(columns):
       if not isinstance(col, Column):
@@ -65,41 +80,48 @@ class Table:
     return head.split(delimiter)
 
   def _qualify_columns(self, columns_to_qualify):
-    """Set the table name attribute to this Table's name for any column that doesn't already 
+    """Set the table name attribute to this Table's name for any Column that doesn't already 
     have one."""
 
     for idx, col in enumerate(columns_to_qualify):
-      if not col.table:
+      if not col.table_name:
         columns_to_qualify[idx] = self._qualify_column(col)
 
     return columns_to_qualify
 
   def _qualify_column(self, col):
+    """If the given Column either:
+    
+    1. Does not match any of this Table's Columns, or
+    2. Does match exactly one of this Table's Columns and has no Table qualifier
+    
+    then qualify it with this Table's name."""
 
     matching_cols = col.matching(self.columns)
     if len(matching_cols) > 1:
       raise "Duplicate matches for column '{0}' on table {1}".format(col, self.name)
     elif len(matching_cols) == 1:
       col = matching_cols[0]
-      if not col.table:
-        col.table = self.name
+      if not col.table_name:
+        col.table_name = self.name
       return col
 
-    col.table = self.name
+    col.table_name = self.name
     return col
 
 
   def order_columns(self, columns_in_order, drop_other_columns = False):
-    """Rearrange the columns of this Table."""
+    """Rearrange and subset the columns of this Table."""
 
     columns_in_order = self._qualify_columns(columns_in_order)
 
     if (columns_in_order == self.columns) or (
       columns_in_order == self.columns[0:len(columns_in_order)] and not drop_other_columns):
-      logging.debug('Columns already in order {0}'.format(self.columns))
+      self.LOG.debug('Columns already in order {0}'.format(self.columns))
       return
-    logging.debug('Current column order of {0} is {1}'.format(self.name, self.columns))
-    logging.debug('Reordering {0} columns to {1}'.format(self.name, columns_in_order))
+
+    self.LOG.debug('Current column order of {0} is {1}'.format(self.name, self.columns))
+    self.LOG.debug('Reordering {0} columns to {1}'.format(self.name, columns_in_order))
     
     reordered_col_idxs = [self.column_idxs[col] for col in columns_in_order]
     unchanged_col_idxs = [
@@ -138,7 +160,7 @@ class Table:
     if len(columns_to_sort_by) <= len(self.sorted_by):
       if columns_to_sort_by == self.sorted_by[0:len(columns_to_sort_by)]:
         return
-    logging.debug('Sorting {0} by {1}'.format(self.name, columns_to_sort_by))
+    self.LOG.debug('Sorting {0} by {1}'.format(self.name, columns_to_sort_by))
 
     column_idxs_to_sort_by = [self.column_idxs[col] for col in columns_to_sort_by]
 
@@ -169,7 +191,7 @@ class Table:
         # treat any PostgreSQL-valid identifier as a column
         expr_part = [
           ('$' + str(self.column_idxs[self._qualify_column(Column(token))] + 1) 
-            if re.match('^[a-zA-Z_][a-zA-Z0-9_.]*$', token) 
+            if re.match(self.VALID_IDENTIFIER_REGEX, token) 
             else token
             )
           for token in expr_part]

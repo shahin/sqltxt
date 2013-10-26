@@ -1,5 +1,6 @@
 from sql_tokenizer import SqlTokenizer
 from query import Query
+import logging
 
 if __name__ == '__main__':
 
@@ -7,9 +8,17 @@ if __name__ == '__main__':
 
   parser = argparse.ArgumentParser(description='Translate SQL to standard command line tools.')
   parser.add_argument('sql', metavar='SQL')
+  parser.add_argument('--log', metavar='LOG')
 
   args = parser.parse_args()
   sql_str = args.sql
+  loglevel = args.log
+
+  if loglevel:
+    numeric_loglevel = getattr(logging, loglevel.upper(), None)
+    if not isinstance(numeric_loglevel, int):
+      raise ValueError('Invalid log level: %s' % loglevel)
+    logging.basicConfig(level=numeric_loglevel)
 
   t = SqlTokenizer()
   tokens = t.parse(sql_str)

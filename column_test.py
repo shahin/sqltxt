@@ -47,3 +47,12 @@ class ColumnTest(unittest.TestCase):
 
     matching_columns = col_a_1.qualified_match([col_a_2, col_a_3, col_a_4])
     self.assertEqual(matching_columns, [col_a_3])
+
+  def test_column_matches_columns_with_matching_ancestors(self):
+    col_a = Column('table_a.col_a')
+    col_a_child = Column('table_a_child.col_a')
+    col_a_child.ancestors += [col_a]
+    col_b = Column('table_b.col_a')
+
+    matching_columns = col_a.ancestor_match([col_a_child, col_b])
+    self.assertEqual(matching_columns, [col_a_child])

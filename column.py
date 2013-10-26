@@ -8,7 +8,7 @@ class Column:
     token_string_parts = token_string.split('.')
     self.name = token_string_parts[-1]
     self.table_name = ''
-    self._ancestor_table_names = []
+    self.ancestors = []
 
     # assign a table name if there is one
     if len(token_string_parts) == 2:
@@ -31,10 +31,6 @@ class Column:
   def table_name(self, value):
     self._cased_table_name = value
     self._table_name = value.upper()
-
-  @property
-  def ancestor_table_names(self):
-    return self._ancestor_table_names
 
   def __eq__(self, other):
     if type(other) is type(self):
@@ -61,10 +57,21 @@ class Column:
     """Return a list of columns with the same column name and table name."""
     return [col for col in columns_to_match if col == self]
 
-  def matching(self, columns_to_match):
+  def ancestor_match(self, columns_to_match):
+    """Return a list of columns with an ancestor that has the same column name and table 
+    name."""
+    return [col for col in columns_to_match if self.qualified_match(col.ancestors)]
+
+  def search(self, columns_to_match, include_ancestors = False):
     """Return a list of columns that match this one."""
 
-    if self.table_name:
-      return self.qualified_match(columns_to_match)
+    matching_columns = []
 
-    return self.name_match(columns_to_match)
+    if self.table_name:
+      matching_columns.extend(self.qualified_match(columns_to_match))
+      if include_ancestors:
+        matching_columns.extend(self.ancestor_match(columns_to_match))
+    else:
+      matching_columns.extend(self.name_match(columns_to_match))
+
+    return matching_columns

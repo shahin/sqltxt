@@ -57,7 +57,7 @@ class Query:
         # we are still missing any missing columns we don't find in the left table
         self.missing_select_columns = [
           col for col in right_subquery.missing_select_columns
-          if not col.matching(self.left_table.columns)
+          if not col.search(self.left_table.columns)
           ]
 
       joined_table = self.join(right_subquery.from_clauses[0][3:])
@@ -97,7 +97,7 @@ class Query:
 
       # identify column names in the Query's select list that do not exist in its tables
       self.missing_select_columns = [col for col in self.columns
-        if not col.matching(self.left_table.columns)]
+        if not col.search(self.left_table.columns)]
 
       # apply where conditions via a Table method
       if self.where_clauses:

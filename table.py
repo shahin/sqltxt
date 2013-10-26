@@ -97,7 +97,7 @@ class Table:
     
     then qualify it with this Table's name."""
 
-    matching_cols = col.matching(self.columns)
+    matching_cols = col.search(self.columns)
     if len(matching_cols) > 1:
       raise "Duplicate matches for column '{0}' on table {1}".format(col, self.name)
     elif len(matching_cols) == 1:

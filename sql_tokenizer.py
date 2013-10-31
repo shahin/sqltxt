@@ -62,9 +62,18 @@ class SqlTokenizer:
     select_stmt = Forward()
     where_expr = Forward()
     where_cond = Group(
-      ( column_idr + binary_op + column_val ) |
-      ( column_idr + in_ + "(" + delimitedList( column_val ) + ")" ) |
-      ( column_idr + in_ + "(" + select_stmt + ")" ) |
+      ( column_idr.setResultsName('left_operand') + 
+        binary_op.setResultsName('operator') + 
+        column_val.setResultsName('right_operand') 
+        ).setResultsName('binary_condition') |
+      ( column_idr.setResultsName('left_operand') + 
+        in_ + 
+        "(" + delimitedList( column_val ).setResultsName('right_operand') + ")" 
+        ).setResultsName('in_list_condition') |
+      ( column_idr.setResultsName('left_operand') + 
+        in_ + 
+        "(" + select_stmt.setResultsName('right_operand') + ")" 
+        ).setResultsName('in_query_condition') |
       ( "(" + where_expr + ")" )
       )
 
@@ -73,15 +82,15 @@ class SqlTokenizer:
     where_expr << where_cond + ZeroOrMore( (and_ | or_) + where_expr )
 
     on_ = Keyword('on', caseless=True)
-    join_type = Group(
-        ( Optional('inner') + 'join' ) |
-        ( oneOf('left right full') + Optional('outer') + 'join' )
+    join = Group(
+        ( Optional('inner').setResultsName('join_type') + 'join' ) |
+        ( oneOf('left right').setResultsName('join_type') + 'join' )
         )
 
     from_expr = Forward()
     from_relation = Group( table_idr ) + ZeroOrMore( 
       Group( 
-        join_type.setResultsName('join_type') + table_idr.setResultsName('right_relation') + on_ + where_cond.setResultsName('join_condition') 
+        join + table_idr.setResultsName('right_relation') + on_ + where_cond.setResultsName('join_condition') 
       )).setResultsName('joins')
 
     select_stmt << (
@@ -89,7 +98,9 @@ class SqlTokenizer:
         ( column_idr_list ).setResultsName('column_names') +
         from_tok +
         from_relation.setResultsName('from_clauses') +
-        Optional( Group( CaselessLiteral("where") + where_expr ), "" ).setResultsName("where") +
+        Optional( 
+          Group( CaselessLiteral("where") + where_expr ), "" 
+          ).setResultsName("where") +
         StringEnd()
         )
 

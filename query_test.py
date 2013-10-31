@@ -9,9 +9,7 @@ class QueryTest(unittest.TestCase):
   def setUp(self):
 
     table_header = ["col_a", "col_b"]
-    table_contents = """1,1
-2,3
-3,2"""
+    table_contents = """1,1\n2,3\n3,2"""
 
     self.table_a = Table.from_cmd(
       name = 'table_a', 
@@ -20,10 +18,7 @@ class QueryTest(unittest.TestCase):
       )
 
     table_header = ["col_a", "col_z"]
-    table_contents = """1,w
-2,x
-2,y
-5,z"""
+    table_contents = """1,w\n2,x\n2,y\n5,z"""
 
     self.table_b = Table.from_cmd(
       name = 'table_b', 

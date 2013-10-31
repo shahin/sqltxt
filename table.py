@@ -20,6 +20,8 @@ class Table:
     self.delimiter = delimiter
     self.cmds = [] if cmd == None else [cmd]
 
+    # every Table needs to qualify all incoming columns with its own name, keeping
+    # ancestries intact
     self.columns = columns
     self.columns = self._qualify_columns(self.columns)
 
@@ -84,8 +86,7 @@ class Table:
     have one."""
 
     for idx, col in enumerate(columns_to_qualify):
-      if not col.table_name:
-        columns_to_qualify[idx] = self._qualify_column(col)
+      columns_to_qualify[idx] = self._qualify_column(col)
 
     return columns_to_qualify
 
@@ -99,11 +100,14 @@ class Table:
 
     matching_cols = col.search(self.columns)
     if len(matching_cols) > 1:
-      raise "Duplicate matches for column '{0}' on table {1}".format(col, self.name)
+      raise KeyError("Duplicate matches for column '{0}' on table {1}".format(repr(col), self.name))
     elif len(matching_cols) == 1:
-      col = matching_cols[0]
       if not col.table_name:
         col.table_name = self.name
+      elif col.table_name != self.name:
+        # TODO: occurs primarily during Table initialization, may want to break out
+        parent_col = col
+        col = Column('{0}.{1}'.format(self.name, str(col)), [parent_col])
       return col
 
     col.table_name = self.name
@@ -190,7 +194,7 @@ class Table:
       else:
         # treat any PostgreSQL-valid identifier as a column
         expr_part = [
-          ('$' + str(self.column_idxs[self._qualify_column(Column(token))] + 1) 
+          ('$' + str( self._column_idx(self._qualify_column(Column(token)), include_ancestors = True) ) 
             if re.match(self.VALID_IDENTIFIER_REGEX, token) 
             else token
             )
@@ -233,3 +237,22 @@ class Table:
     """Return a hash of column indices keyed by column."""
     return { c:i for (i,c) in enumerate(self.columns) }
   
+  def _column_idx(self, column, include_ancestors = False):
+    """Given a Column, return the index of the matching column on this Table. 
+    
+    If a matching column does not exist, optionally search the ancestors of columns on this 
+    Table until a match is found. 
+    
+    Raises a KeyError if no matches are found.
+    """
+
+    try:
+      return self.column_idxs[column] + 1
+    except KeyError as e:
+      if include_ancestors:
+        # if this column doesn't match anything on this table, try this column's ancestors
+        # traverse ancestor tree depth-first for a match
+        matches = column.search(self.columns, include_ancestors)
+
+      # all attempts to find a matching column are exhausted
+      raise e

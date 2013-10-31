@@ -1,6 +1,7 @@
 import unittest
 from table import Table
 from query import Query 
+from column import Column
 import subprocess
 
 class QueryTest(unittest.TestCase):
@@ -60,17 +61,30 @@ class QueryTest(unittest.TestCase):
     table_actual_out = subprocess.check_output(['/bin/bash', '-c', table_actual.get_cmd_str(output_column_names=True)])
     self.assertEqual(table_actual_out, table_expected_out)
 
-  def test_join_column_names(self):
+  def test_join_columns(self):
 
     # TODO: decide whether to call generate_table from constructor
-    # TODO: find a more concise way to initialize these join queries; fixtures?
     q = Query(
       from_clauses = [['table_a'],[['inner','join'],'table_b','on',['table_a.col_a', '=', 'table_b.col_a']]], 
       where_clauses = [], 
       column_names = ['col_a', 'col_b', 'col_z'])
     t = q.generate_table()
-    header_actual = q._join_column_names([1], [1])
-    header_expected = ['col_a','col_b','col_z']
+    header_actual = t.columns
+    header_expected = ['col_a', 'col_b', 'col_z']
+
+    self.assertEqual([str(col) for col in header_actual], header_expected)
+
+  def test_join_columns_retains_column_ancestry(self):
+
+    q = Query(
+      from_clauses = [['table_a'],[['inner','join'],'table_b','on',['table_a.col_a', '=', 'table_b.col_a']]], 
+      where_clauses = [], 
+      column_names = ['col_a', 'col_b', 'col_z'])
+    t = q.generate_table()
+    header_actual = t.columns
+
+    parent_col = Column('table_b.col_a')
+    self.assertEqual([header_actual[0]], parent_col.search(header_actual,True))
 
   def test_join_two_tables(self):
     
@@ -90,7 +104,6 @@ class QueryTest(unittest.TestCase):
     table_actual_out = subprocess.check_output(['/bin/bash', '-c', table_actual.get_cmd_str(output_column_names=True)])
     
     self.assertEqual(table_actual_out, table_expected_out)
-    
 
   def test_join_two_tables_with_sort(self):
     
@@ -98,6 +111,40 @@ class QueryTest(unittest.TestCase):
       from_clauses = [['table_a'],[['inner','join'],'table_b','on',['table_a.col_b', '=', 'table_b.col_a']]], 
       where_clauses = [], 
       column_names = ['col_b', 'col_a', 'col_z'])
+    table_actual = q.generate_table()
+    cmd_actual = table_actual.get_cmd_str(output_column_names=True)
+    cmd_expected = \
+      'echo "col_b,col_a,col_z"; ' + \
+      "join -t, -1 2 -2 1 <(tail +2 TABLE_A.txt | sort -t, -k 2) <(tail +2 TABLE_B.txt | sort -t, -k 1)"
+    self.assertEqual(cmd_actual, cmd_expected)
+    
+    table_actual_out = subprocess.check_output(['/bin/bash', '-c', cmd_actual])
+    table_expected_out = subprocess.check_output(['/bin/bash', '-c', cmd_expected])
+
+    self.assertEqual(table_actual_out, table_expected_out)
+
+  def test_wildcard_selects_all_columns(self):
+    
+    q = Query(
+      from_clauses = [['table_a']], 
+      where_clauses = [], 
+      column_names = ['*'])
+    table_actual = q.generate_table()
+    cmd_actual = table_actual.get_cmd_str(output_column_names=True)
+    cmd_expected = 'echo "col_a,col_b"; tail +2 TABLE_A.txt'
+    self.assertEqual(cmd_actual, cmd_expected)
+    
+    table_actual_out = subprocess.check_output(['/bin/bash', '-c', cmd_actual])
+    table_expected_out = subprocess.check_output(['/bin/bash', '-c', cmd_expected])
+
+    self.assertEqual(table_actual_out, table_expected_out)
+
+  def test_wildcard_on_join_selects_all_columns(self):
+    
+    q = Query(
+      from_clauses = [['table_a'],[['inner','join'],'table_b','on',['table_a.col_b', '=', 'table_b.col_a']]], 
+      where_clauses = [], 
+      column_names = ['*'])
     table_actual = q.generate_table()
     cmd_actual = table_actual.get_cmd_str(output_column_names=True)
     cmd_expected = \

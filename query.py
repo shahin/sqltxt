@@ -135,13 +135,13 @@ class Query:
       left_indices_arg, right_indices_arg, 
       self.left_table.get_cmd_str(), self.right_table.get_cmd_str())
 
-    join_column_names = self._join_column_names(left_indices, right_indices)
+    join_columns = self._join_columns(left_indices, right_indices)
 
     # create a new Table representing the (non-materialized) result of the join command
     join_result_table = Table.from_cmd(
       name = 'join_result',
       cmd = join_cmd,
-      columns = join_column_names
+      columns = join_columns
       )
 
     return join_result_table
@@ -167,29 +167,23 @@ class Query:
 
     return left_indices, right_indices
 
-  def _join_column_names(self, left_indices, right_indices):
+  def _join_columns(self, left_indices, right_indices):
     """Given the indices of join columns, return the ordered column names in the joined result."""
 
     n_columns_left = len(self.left_table.columns)
     n_columns_right = len(self.right_table.columns)
 
-    join_columns = [self.left_table.columns[i] for i in left_indices]
+    join_columns = [Column(str(self.left_table.columns[i])) for i in left_indices]
+    for idx, col in enumerate(join_columns):
+      join_columns[idx].ancestors = \
+        [self.right_table.columns[right_indices[idx]]] + \
+        [self.left_table.columns[left_indices[idx]]]
+
     nonjoin_columns = [self.left_table.columns[i] for i in range(n_columns_left) 
       if i not in left_indices]
     nonjoin_columns += [self.right_table.columns[i] for i in range(n_columns_right)
       if i not in right_indices]
 
-    # TODO: need columns that we join on to have multiple column table qualifiers so that
-    # we can apply where conditions to columns that have multiple table parents, e.g.
-    # table_a join table_b on (table_a.col_a = table_b.col_a) where table_b.col_a = 2
-    # 'where' is applied after the join, but by then, table_b.col_a no longer exists (although
-    # table_a.col_a still exists)
-    # options:
-    # 1. mutliple column qualifiers as described above
-    # 2. re-qualify all table columns under the joined table's name, and re-qualify any applied
-    # statements using that joined table's name
-    # 3. re-qualify all table columns under the joined table's name which includes ancestor
-    # table info, then do name matching against qualified columns in select statements
     join_result_columns = join_columns + nonjoin_columns
     self.LOG.debug('Resolved join result column names as [{0}]'.format(
       ', '.join([repr(c) for c in join_result_columns])))

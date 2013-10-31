@@ -3,12 +3,12 @@ class Column:
   table name on which it appears. Columns are case-insensitive.
   """
 
-  def __init__(self, token_string):
+  def __init__(self, token_string, ancestors = []):
 
     token_string_parts = token_string.split('.')
     self.name = token_string_parts[-1]
     self.table_name = ''
-    self.ancestors = []
+    self.ancestors = ancestors
 
     # assign a table name if there is one
     if len(token_string_parts) == 2:
@@ -60,10 +60,15 @@ class Column:
   def ancestor_match(self, columns_to_match):
     """Return a list of columns with an ancestor that has the same column name and table 
     name."""
-    return [col for col in columns_to_match if self.qualified_match(col.ancestors)]
+    return [col for col in columns_to_match if self.search(col.ancestors)]
 
   def search(self, columns_to_match, include_ancestors = False):
-    """Return a list of columns that match this one."""
+    """Return a list of columns that match this one.
+
+    If this column is qualified, require a match on table name and column name. Otherwise,
+    require a match on column name only.
+    
+    """
 
     matching_columns = []
 

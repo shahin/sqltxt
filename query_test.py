@@ -110,7 +110,7 @@ class QueryTest(unittest.TestCase):
     cmd_actual = table_actual.get_cmd_str(output_column_names=True)
     cmd_expected = \
       'echo "col_b,col_a,col_z"; ' + \
-      "join -t, -1 2 -2 1 <(tail +2 TABLE_A.txt | sort -t, -k 2) <(tail +2 TABLE_B.txt | sort -t, -k 1)"
+      "join -t, -1 2 -2 1 <(tail +2 TABLE_A.txt | sort -t, -k 2,2) <(tail +2 TABLE_B.txt | sort -t, -k 1,1)"
     self.assertEqual(cmd_actual, cmd_expected)
     
     table_actual_out = subprocess.check_output(['/bin/bash', '-c', cmd_actual])
@@ -144,7 +144,7 @@ class QueryTest(unittest.TestCase):
     cmd_actual = table_actual.get_cmd_str(output_column_names=True)
     cmd_expected = \
       'echo "col_b,col_a,col_z"; ' + \
-      "join -t, -1 2 -2 1 <(tail +2 TABLE_A.txt | sort -t, -k 2) <(tail +2 TABLE_B.txt | sort -t, -k 1)"
+      "join -t, -1 2 -2 1 <(tail +2 TABLE_A.txt | sort -t, -k 2,2) <(tail +2 TABLE_B.txt | sort -t, -k 1,1)"
     self.assertEqual(cmd_actual, cmd_expected)
     
     table_actual_out = subprocess.check_output(['/bin/bash', '-c', cmd_actual])

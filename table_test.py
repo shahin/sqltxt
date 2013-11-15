@@ -69,36 +69,10 @@ class TableTest(unittest.TestCase):
     self.table_a.sort(sort_by_cols)
 
     cmds_actual = self.table_a.cmds
-    cmds_expected = ['echo -e "1,1\n2,3\n3,2"', "sort -t, -k 1,2"]
+    cmds_expected = ['echo -e "1,1\n2,3\n3,2"', "sort -t, -k 1,1 -k 2,2"]
     self.assertEqual(cmds_actual, cmds_expected)
 
     self.assertEqual(self.table_a.sorted_by, sort_by_cols)
-
-  def test_sort_with_reordered_columns(self):
-    
-    sort_by_cols = [Column('col_b'), Column('col_a')]
-    self.table_a.sort(sort_by_cols)
-
-    cmds_actual = self.table_a.cmds
-    cmds_expected = ['echo -e "1,1\n2,3\n3,2"', 
-        "awk -F',' 'OFS=\",\" { print $2,$1 }'",
-        "sort -t, -k 1,2"]
-    self.assertEqual(cmds_actual, cmds_expected)
-
-  def test_reorder_compose_sort(self):
-
-    sort_by_cols = [Column('col_b'), Column('col_a')]
-    self.table_a.sort(sort_by_cols)
-
-    col_order = [Column('col_a'), Column('col_b')]
-    self.table_a.order_columns(col_order)
-
-    cmds_actual = self.table_a.cmds
-    cmds_expected = ['echo -e "1,1\n2,3\n3,2"', 
-        "awk -F',' 'OFS=\",\" { print $2,$1 }'",
-        "sort -t, -k 1,2",
-        "awk -F',' 'OFS=\",\" { print $2,$1 }'"]
-    self.assertEqual(cmds_actual, cmds_expected)
 
   def test_is_sorted_by(self):
 

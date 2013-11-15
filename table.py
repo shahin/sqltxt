@@ -13,6 +13,9 @@ class Table:
   VALID_IDENTIFIER_REGEX = '^[a-zA-Z_][a-zA-Z0-9_.]*$'
   LOG = logging.getLogger(__name__)
 
+  def __str__(self):
+    return self.name
+
   def __init__(self, 
     name, delimiter = ',', cmd = None, columns = None, is_file = False, extension = 'txt'):
 
@@ -24,6 +27,7 @@ class Table:
     # ancestries intact
     self.columns = columns
     self.columns = self._qualify_columns(self.columns)
+    self.LOG.debug('{0} has columns {1}'.format(self,self.columns))
 
     self.is_file = is_file
     self.extension = extension
@@ -99,9 +103,7 @@ class Table:
     then qualify it with this Table's name."""
 
     matching_cols = col.search(self.columns)
-    if len(matching_cols) > 1:
-      raise KeyError("Duplicate matches for column '{0}' on table {1}".format(repr(col), self.name))
-    elif len(matching_cols) == 1:
+    if len(matching_cols) > 0:
       if not col.table_name:
         col.table_name = self.name
       elif col.table_name != self.name:
@@ -127,9 +129,9 @@ class Table:
     self.LOG.debug('Current column order of {0} is {1}'.format(self.name, self.columns))
     self.LOG.debug('Reordering {0} columns to {1}'.format(self.name, columns_in_order))
     
-    reordered_col_idxs = [self.column_idxs[col] for col in columns_in_order]
+    reordered_col_idxs = [self.column_idxs[col][0] for col in columns_in_order]
     unchanged_col_idxs = [
-      self.column_idxs[col] for col in self.columns
+      self.column_idxs[col][0] for col in self.columns
       if col not in columns_in_order]
 
     col_idxs = reordered_col_idxs
@@ -155,10 +157,22 @@ class Table:
 
     return True
 
+  def _dedupe_with_order(self,dupes):
+    """Given a list, return it without duplicates and order preserved."""
+
+    seen = set()
+    deduped = []
+    for c in dupes:
+      if c not in seen:
+        seen.add(c) 
+        deduped.append(c)
+    return deduped
+
   def sort(self, columns_to_sort_by):
     """Sort the rows of this Table by the given columns."""
 
-    columns_to_sort_by = self._qualify_columns(columns_to_sort_by)
+    deduped_columns = self._dedupe_with_order(columns_to_sort_by)
+    columns_to_sort_by = self._qualify_columns(deduped_columns)
 
     # if this table is already sorted by the requested sort order, do nothing
     if len(columns_to_sort_by) <= len(self.sorted_by):
@@ -166,17 +180,12 @@ class Table:
         return
     self.LOG.debug('Sorting {0} by {1}'.format(self.name, columns_to_sort_by))
 
-    column_idxs_to_sort_by = [self.column_idxs[col] for col in columns_to_sort_by]
+    column_idxs_to_sort_by = [self.column_idxs[col][0] for col in columns_to_sort_by]
 
-    # sort-by columns must be adjacent, so reorder them if they are not adjacent
-    first_idx = column_idxs_to_sort_by[0]
-    last_idx = column_idxs_to_sort_by[-1]
-    if column_idxs_to_sort_by != list(range(first_idx, last_idx+1)):
-      self.order_columns(columns_to_sort_by)
-      column_idxs_to_sort_by = [self.column_idxs[col] for col in columns_to_sort_by]
+    sort_key_params = ' -k '.join(
+          ','.join([str(idx + 1),str(idx + 1)]) for idx in column_idxs_to_sort_by)
 
-    sort_cmd = 'sort -t{0} -k {1}'.format(self.delimiter, 
-        ','.join(str(idx + 1) for idx in column_idxs_to_sort_by))
+    sort_cmd = 'sort -t{0} -k {1}'.format(self.delimiter, sort_key_params)
     self.sorted_by = columns_to_sort_by
     self.cmds.append(sort_cmd)
     
@@ -205,7 +214,7 @@ class Table:
     if condition_str == '':
       condition_str = '1'
 
-    columns = ','.join(['$' + str(self.column_idxs[c] + 1) for c in self.columns])
+    columns = ','.join(['$' + str(self.column_idxs[c][0] + 1) for c in self.columns])
     awk_cmd = "awk -F'{0}' 'OFS=\"{0}\" {{ if ({1}) {{ print {2} }} }}'".format(
       self.delimiter, condition_str, columns)
     self.cmds.append(awk_cmd)
@@ -235,7 +244,15 @@ class Table:
 
   def _compute_column_indices(self):
     """Return a hash of column indices keyed by column."""
-    return { c:i for (i,c) in enumerate(self.columns) }
+
+    idxs = {}
+    for (i,c) in enumerate(self.columns):
+      try:
+        idxs[c].append(i)
+      except KeyError:
+        idxs[c] = [i]
+    self.LOG.debug('{0} computed column indices {1}'.format(self,idxs))
+    return idxs
   
   def _column_idx(self, column, include_ancestors = False):
     """Given a Column, return the index of the matching column on this Table. 
@@ -247,7 +264,7 @@ class Table:
     """
 
     try:
-      return self.column_idxs[column] + 1
+      return self.column_idxs[column][0] + 1
     except KeyError as e:
       if include_ancestors:
         # if this column doesn't match anything on this table, try this column's ancestors

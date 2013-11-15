@@ -122,9 +122,11 @@ class Query:
 
     # re-sort tables if necessary
     if not self.left_table.is_sorted_by(left_indices):
+      self.LOG.debug('Table {0} not sorted prior to join'.format(self.left_table))
       self.left_table.sort([self.left_table.columns[i] for i in left_indices])
 
     if not self.right_table.is_sorted_by(right_indices):
+      self.LOG.debug('Table {0} not sorted prior to join'.format(self.right_table))
       self.right_table.sort([self.right_table.columns[i] for i in right_indices])
 
     # constract the command that will join the data
@@ -154,6 +156,7 @@ class Query:
     left_indices = []
     right_indices = []
     for condition in join_conditions:
+      self.LOG.debug('Join condition {0}'.format(condition))
 
       join_vars = (condition[0], condition[2])
 
@@ -161,9 +164,10 @@ class Query:
 
         join_col = Column(join_var)
         if join_col.table_name == self.left_table.name:
-          left_indices.append(self.left_table.column_idxs[join_col])
+          left_indices.append(self.left_table.column_idxs[join_col][0])
         elif join_col.table_name == self.right_table.name:
-          right_indices.append(self.right_table.column_idxs[join_col])
+          self.LOG.debug('Right column idxs: {0}'.format(self.right_table.column_idxs))
+          right_indices.append(self.right_table.column_idxs[join_col][0])
 
     return left_indices, right_indices
 

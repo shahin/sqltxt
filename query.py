@@ -74,7 +74,7 @@ class Query:
 
       if self.where_clauses:
         where_conditions = self._normalize_sql_boolean_operators(self.where_clauses)
-        joined_table.select_subset(where_conditions)
+        joined_table.subset_columns(where_conditions)
       
       # order result columns to match the select list via a Table method
       joined_table.order_columns(
@@ -100,9 +100,8 @@ class Query:
         if not col.match(self.left_table.columns)]
 
       # apply where conditions via a Table method
-      if self.where_clauses:
-        where_conditions = self._normalize_sql_boolean_operators(self.where_clauses)
-        self.left_table.select_subset(where_conditions)
+      where_conditions = self._normalize_sql_boolean_operators(self.where_clauses)
+      self.left_table.subset_columns(where_conditions)
 
       # order result columns to match the select list via a Table method
       self.left_table.order_columns(

@@ -190,7 +190,7 @@ class Table:
     self.cmds.append(sort_cmd)
     
 
-  def select_subset(self, conditions):
+  def subset_columns(self, conditions):
     """Subset the rows of this Table to rows that satisfy the given conditions."""
 
     # translate a list of boolean conditions to awk syntax
@@ -210,9 +210,10 @@ class Table:
           for token in expr_part]
         condition_str += ' '.join(expr_part)
 
-    # treat no-conditions as an always-true condition
     if condition_str == '':
-      condition_str = '1'
+      self.LOG.debug('Empty condition string so not subsetting columns on {0}'.format(
+          self.name))
+      return
 
     columns = ','.join(['$' + str(self.column_idxs[c][0] + 1) for c in self.columns])
     awk_cmd = "awk -F'{0}' 'OFS=\"{0}\" {{ if ({1}) {{ print {2} }} }}'".format(

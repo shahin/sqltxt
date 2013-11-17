@@ -43,10 +43,10 @@ class TableTest(unittest.TestCase):
     result_expected = Column('table_a.col_a')
     self.assertNotEqual(result_actual, result_expected)
 
-  def test_select_subset(self):
+  def test_subset_columns(self):
     
     conditions = [['col_b', '==', '1'], 'or', ['col_a', '==', '2']]
-    self.table_a.select_subset(conditions)
+    self.table_a.subset_columns(conditions)
 
     cmds_actual = self.table_a.cmds
     cmds_expected = [

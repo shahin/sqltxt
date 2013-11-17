@@ -79,7 +79,7 @@ class QueryTest(unittest.TestCase):
     header_actual = t.columns
 
     parent_col = Column('table_b.col_a')
-    self.assertEqual([header_actual[0]], parent_col.search(header_actual,True))
+    self.assertEqual([header_actual[0]], parent_col.match(header_actual,True))
 
   def test_join_two_tables(self):
     

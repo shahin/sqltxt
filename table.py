@@ -102,7 +102,7 @@ class Table:
     
     then qualify it with this Table's name."""
 
-    matching_cols = col.search(self.columns)
+    matching_cols = col.match(self.columns)
     if len(matching_cols) > 0:
       if not col.table_name:
         col.table_name = self.name
@@ -257,7 +257,7 @@ class Table:
   def _column_idx(self, column, include_ancestors = False):
     """Given a Column, return the index of the matching column on this Table. 
     
-    If a matching column does not exist, optionally search the ancestors of columns on this 
+    If a matching column does not exist, optionally match the ancestors of columns on this 
     Table until a match is found. 
     
     Raises a KeyError if no matches are found.
@@ -269,7 +269,7 @@ class Table:
       if include_ancestors:
         # if this column doesn't match anything on this table, try this column's ancestors
         # traverse ancestor tree depth-first for a match
-        matches = column.search(self.columns, include_ancestors)
+        matches = column.match(self.columns, include_ancestors)
 
       # all attempts to find a matching column are exhausted
       raise e

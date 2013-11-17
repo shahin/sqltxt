@@ -60,9 +60,9 @@ class Column:
   def ancestor_match(self, columns_to_match):
     """Return a list of columns with an ancestor that has the same column name and table 
     name."""
-    return [col for col in columns_to_match if self.search(col.ancestors)]
+    return [col for col in columns_to_match if self.match(col.ancestors)]
 
-  def search(self, columns_to_match, include_ancestors = False):
+  def match(self, columns_to_match, include_ancestors = False):
     """Return a list of columns that match this one.
 
     If this column is qualified, require a match on table name and column name. Otherwise,

@@ -23,6 +23,19 @@ class Query:
     self.left_table = None
     self.right_table = None
 
+  @staticmethod
+  def _replace_column_wildcards(column_list, replacement_columns):
+    """Given a list of Columns, replace any Column named '*' with all Columns in the replacement 
+    list."""
+    columns_resolved_wildcards = []
+    for col in column_list:
+      if col.name == '*':
+        columns_resolved_wildcards.extend(replacement_columns)
+      else:
+        columns_resolved_wildcards.append(col)
+
+    return columns_resolved_wildcards
+
   def generate_table(self):
     """Return a Table representing the result of this Query.
 
@@ -52,6 +65,10 @@ class Query:
       right_subquery = Query(self.from_clauses[1:], [], self.column_names, is_top_level = False)
       self.right_table = right_subquery.generate_table()
 
+      # this is cryptic. self.join? right_subquery.from_clauses? a more functional approach
+      # would be easier to test
+      result_table = self.join(right_subquery.from_clauses[0][3:])
+
       self.missing_select_columns = []
       if right_subquery.missing_select_columns:
         # we are still missing any missing columns we don't find in the left table
@@ -60,55 +77,24 @@ class Query:
           if not col.match(self.left_table.columns)
           ]
 
-      joined_table = self.join(right_subquery.from_clauses[0][3:])
-
-      # replace wildcards in the select list with table column names
-      columns_resolved_wildcards = []
-      for col in self.columns:
-        if col.name == '*':
-          columns_resolved_wildcards.extend(joined_table.columns)
-        else:
-          columns_resolved_wildcards.append(col)
-
-      self.columns = columns_resolved_wildcards
-
-      if self.where_clauses:
-        where_conditions = self._normalize_sql_boolean_operators(self.where_clauses)
-        joined_table.subset_columns(where_conditions)
-      
-      # order result columns to match the select list via a Table method
-      joined_table.order_columns(
-          [col for col in self.columns if col not in self.missing_select_columns], 
-          drop_other_columns = self.is_top_level)
-
-      return joined_table
-
     else:
 
-      # replace wildcards in the select list with table column names
-      columns_resolved_wildcards = []
-      for col in self.columns:
-        if col.name == '*':
-          columns_resolved_wildcards.extend(self.left_table.columns)
-        else:
-          columns_resolved_wildcards.append(col)
-
-      self.columns = columns_resolved_wildcards
-
-      # identify column names in the Query's select list that do not exist in its tables
       self.missing_select_columns = [col for col in self.columns
         if not col.match(self.left_table.columns)]
 
-      # apply where conditions via a Table method
-      where_conditions = self._normalize_sql_boolean_operators(self.where_clauses)
-      self.left_table.subset_columns(where_conditions)
+      result_table = self.left_table
 
-      # order result columns to match the select list via a Table method
-      self.left_table.order_columns(
-          [col for col in self.columns if col not in self.missing_select_columns], 
-          drop_other_columns = self.is_top_level)
+    self.columns = self._replace_column_wildcards(self.columns, result_table.columns)
 
-      return self.left_table
+    where_conditions = self._normalize_sql_boolean_operators(self.where_clauses)
+    result_table.subset_columns(where_conditions)
+    
+    # order result columns to match the select list via a Table method
+    result_table.order_columns(
+        [col for col in self.columns if col not in self.missing_select_columns], 
+        drop_other_columns = self.is_top_level)
+
+    return result_table
 
   def join(self, join_conditions):
     """Return a Table representing the join of the left and right Tables of this Query."""

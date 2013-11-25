@@ -26,8 +26,8 @@ class Table:
     # every Table needs to qualify all incoming columns with its own name, keeping
     # ancestries intact
     self.columns = columns
-    self.columns = self._qualify_columns(self.columns)
-    self.LOG.debug('{0} has columns {1}'.format(self,self.columns))
+    self.columns = [self._qualify_column(col) for col in self.columns]
+    self.LOG.debug('{0} has columns {1}'.format(self, self.columns))
 
     self.is_file = is_file
     self.extension = extension
@@ -85,15 +85,6 @@ class Table:
 
     return head.split(delimiter)
 
-  def _qualify_columns(self, columns_to_qualify):
-    """Set the table name attribute to this Table's name for any Column that doesn't already 
-    have one."""
-
-    for idx, col in enumerate(columns_to_qualify):
-      columns_to_qualify[idx] = self._qualify_column(col)
-
-    return columns_to_qualify
-
   def _qualify_column(self, col):
     """If the given Column either:
     
@@ -115,11 +106,10 @@ class Table:
     col.table_name = self.name
     return col
 
-
   def order_columns(self, columns_in_order, drop_other_columns = False):
     """Rearrange and subset the columns of this Table."""
 
-    columns_in_order = self._qualify_columns(columns_in_order)
+    columns_in_order = [self._qualify_column(col) for col in columns_in_order]
 
     if (columns_in_order == self.columns) or (
       columns_in_order == self.columns[0:len(columns_in_order)] and not drop_other_columns):
@@ -172,7 +162,7 @@ class Table:
     """Sort the rows of this Table by the given columns."""
 
     deduped_columns = self._dedupe_with_order(columns_to_sort_by)
-    columns_to_sort_by = self._qualify_columns(deduped_columns)
+    columns_to_sort_by = [self._qualify_column(col) for col in deduped_columns]
 
     # if this table is already sorted by the requested sort order, do nothing
     if len(columns_to_sort_by) <= len(self.sorted_by):
@@ -189,7 +179,6 @@ class Table:
     self.sorted_by = columns_to_sort_by
     self.cmds.append(sort_cmd)
     
-
   def subset_columns(self, conditions):
     """Subset the rows of this Table to rows that satisfy the given conditions."""
 
@@ -220,7 +209,7 @@ class Table:
       self.delimiter, condition_str, columns)
     self.cmds.append(awk_cmd)
 
-  def get_cmd_str(self, outfile_name = None, output_column_names = False):
+  def get_cmd_str(self, output_column_names = False):
     """Return a string of commands whose output is the contents of this Table.""" 
 
     cmds = self.cmds
@@ -237,14 +226,10 @@ class Table:
           ','.join([str(col) for col in self.columns])
           ) + cmd_str
 
-    # add output redirection to file
-    if outfile_name is not None:
-      cmd_str += (' > ' + outfile_name)
-
     return cmd_str
 
   def _compute_column_indices(self):
-    """Return a hash of column indices keyed by column."""
+    """Return a dictionary of column index lists keyed by Column."""
 
     idxs = {}
     for (i,c) in enumerate(self.columns):

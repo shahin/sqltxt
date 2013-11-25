@@ -106,20 +106,10 @@ class TableTest(unittest.TestCase):
     cmd_expected = 'echo -e "1,2,3,4"'
     self.assertEqual(cmd_actual, cmd_expected)
     
-    # output from a command-backed Table to a file
-    cmd_actual = table_from_cmd.get_cmd_str('out_file.out')
-    cmd_expected = 'echo -e "1,2,3,4" > out_file.out'
-    self.assertEqual(cmd_actual, cmd_expected)
-    
     # add a command, then output
     table_from_cmd.cmds += ['sort']
 
     # to STDOUT
     cmd_actual = table_from_cmd.get_cmd_str()
     cmd_expected = 'echo -e "1,2,3,4" | sort'
-    self.assertEqual(cmd_actual, cmd_expected)
-    
-    # to a file
-    cmd_actual = table_from_cmd.get_cmd_str('out_file.out')
-    cmd_expected = 'echo -e "1,2,3,4" | sort > out_file.out'
     self.assertEqual(cmd_actual, cmd_expected)

@@ -26,7 +26,7 @@ if __name__ == '__main__':
   q = Query(
         tokens.from_clauses.asList(), 
         tokens.where.asList()[0][1:], 
-        tokens.column_names.asList(),
+        tokens.column_definitions.asList(),
         True
       )
 

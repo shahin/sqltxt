@@ -34,7 +34,8 @@ class SqlTokenizer:
     # for parsing select-from statements
     idr = Word(alphas + '*', alphanums + '_*$').setName('identifier')
     column_idr = delimitedList(idr, '.', combine=True)
-    column_idr_list = Group(delimitedList(column_idr))
+    aggregate_function = Combine(Keyword('count') + '(' + Group(delimitedList(column_idr)) + ')')
+    column_list = Group(delimitedList((column_idr ^ aggregate_function.setResultsName('aggregate_functions',listAllMatches=True))))
     table_idr = Upcase(delimitedList(idr, '.', combine=True))
     table_idr_list = Group(delimitedList(table_idr))
 
@@ -77,6 +78,8 @@ class SqlTokenizer:
       ( "(" + where_expr + ")" )
       )
 
+    group_by_expr = Group(column_idr + ZeroOrMore( "," + column_idr ))('column_names')
+
     join_cond = where_cond
 
     where_expr << where_cond + ZeroOrMore( (and_ | or_) + where_expr )
@@ -95,12 +98,15 @@ class SqlTokenizer:
 
     select_stmt << (
         select_tok + 
-        ( column_idr_list ).setResultsName('column_names') +
+        ( column_list ).setResultsName('column_definitions') +
         from_tok +
         from_relation.setResultsName('from_clauses') +
         Optional( 
           Group( CaselessLiteral("where") + where_expr ), "" 
           ).setResultsName("where") +
+        Optional(
+          Group( CaselessLiteral("group by") + group_by_expr ), ""
+          ).setResultsName("group_by") +
         StringEnd()
         )
 

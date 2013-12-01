@@ -35,7 +35,7 @@ class SqlTokenizer:
     idr = Word(alphas + '*', alphanums + '_*$').setName('identifier')
     column_idr = delimitedList(idr, '.', combine=True)
     aggregate_function = Combine(Keyword('count') + '(' + Group(delimitedList(column_idr)) + ')')
-    column_list = Group(delimitedList((column_idr ^ aggregate_function.setResultsName('aggregate_functions',listAllMatches=True))))
+    column_list = Group(delimitedList((column_idr ^ aggregate_function.setResultsName('aggregate_functions', listAllMatches=True))))
     table_idr = Upcase(delimitedList(idr, '.', combine=True))
     table_idr_list = Group(delimitedList(table_idr))
 
@@ -78,7 +78,7 @@ class SqlTokenizer:
       ( "(" + where_expr + ")" )
       )
 
-    group_by_expr = Group(column_idr + ZeroOrMore( "," + column_idr ))('column_names')
+    group_by_expr = Group(column_idr + ZeroOrMore( "," + column_idr ))
 
     join_cond = where_cond
 
@@ -91,7 +91,7 @@ class SqlTokenizer:
         )
 
     from_expr = Forward()
-    from_relation = Group( table_idr ) + ZeroOrMore( 
+    from_clause = Group( table_idr ) + ZeroOrMore( 
       Group( 
         join + table_idr.setResultsName('right_relation') + on_ + where_cond.setResultsName('join_condition') 
       )).setResultsName('joins')
@@ -100,13 +100,9 @@ class SqlTokenizer:
         select_tok + 
         ( column_list ).setResultsName('column_definitions') +
         from_tok +
-        from_relation.setResultsName('from_clauses') +
-        Optional( 
-          Group( CaselessLiteral("where") + where_expr ), "" 
-          ).setResultsName("where") +
-        Optional(
-          Group( CaselessLiteral("group by") + group_by_expr ), ""
-          ).setResultsName("group_by") +
+        from_clause.setResultsName('from_clause') +
+        Optional( CaselessLiteral("where") + where_expr.setResultsName("where_conditions") ) +
+        Optional( CaselessLiteral("group by") + group_by_expr.setResultsName("group_by_column_names") ) + 
         StringEnd()
         )
 

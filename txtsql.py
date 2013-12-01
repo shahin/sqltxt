@@ -24,9 +24,9 @@ if __name__ == '__main__':
   tokens = t.parse(sql_str)
 
   q = Query(
-        tokens.from_clauses.asList(), 
-        tokens.where.asList()[0][1:], 
-        tokens.column_definitions.asList(),
+        tokens.from_clause, 
+        tokens.where_conditions, 
+        tokens.column_definitions,
         True
       )
 

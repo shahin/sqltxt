@@ -87,6 +87,64 @@ class TableTest(unittest.TestCase):
     self.assertFalse(table_from_cmd.is_sorted_by([1]))
     self.assertTrue(table_from_cmd.is_sorted_by([0,1]))
 
+  def test_count_star(self):
+
+    # select col_a, count(col_b) from table_b group by col_a
+    self.table_b.group_by(['col_a','col_b'], 'count(*)')
+    cmds_actual = self.table_b.cmds
+
+    # group by col_a, col_b should have a row for every value of col_a x col_b, even if that value
+    # is NULL
+    # this will not include rows for col_a values that have zero non-null col_b's
+    # not sure how to do that yet
+    cmds_expected = [
+      'echo -e "1,x\n2,w\n2,y\n3,z"', 
+      'tee <(',
+      [
+        'cut -d, -f1',
+        'sort -t, -k 1.1',
+        'uniq -c',
+        '> count_col_b_group_by_col_a_fifo'
+      ],
+      ')',
+      'cut -d, -f1',
+      'sort -t, -k 1.1',
+      '> group_by_col_a_fifo',
+      'join  <(group_by_col_a_fifo) <(count_col_b_group_by_col_a_fifo)'
+    ]
+
+    self.assertEqual(cmds_actual, cmds_expected)
+
+  def test_count_var(self):
+
+    # select col_a, count(col_b) from table_b group by col_a
+    self.table_b.group_by(['col_a'], 'count(col_b)')
+    cmds_actual = self.table_b.cmds
+
+    # group by col_a, col_b should have a row for every value of col_a x col_b, even if that value
+    # is NULL
+    # this will not include rows for col_a values that have zero non-null col_b's
+    # not sure how to do that yet
+    cmds_expected = [
+      'echo -e "1,x\n2,w\n2,y\n3,z"', 
+      'tee <(',
+      [
+        < 'awk \'BEGIN { FS = "," }; { if($2 != "") print }\'' >
+        'cut -d, -f1',
+        'sort -t, -k 1.1',
+        'uniq -c',
+        '> count_col_b_group_by_col_a_fifo'
+      ],
+      ')',
+      'cut -d, -f1',
+      'sort -t, -k 1.1',
+      '> group_by_col_a_fifo',
+      'join  <(group_by_col_a_fifo) <(count_col_b_group_by_col_a_fifo)'
+    ]
+
+    self.assertEqual(cmds_actual, cmds_expected)
+
+
   def test_get_cmd_str(self):
     
     table_from_file = Table.from_filename('table_a')

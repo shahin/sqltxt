@@ -210,9 +210,29 @@ class Table:
     self.cmds.append(awk_cmd)
 
   def group_by(self, columns_to_group_by, aggregate_function):
-    """Given a set of columns and an aggregate function, sort the Table by that set of columns and
-    direct output to that function."""
+    """Given a set of columns and an aggregate function, create and join two Tables to represent
+    the result of that aggregate function."""
 
+    cut_columns = ','.join([str(self.column_idxs[c][0] + 1) for c in columns_to_group_by])
+
+    column_idxs_to_sort_by = [self.column_idxs[col][0] for col in columns_to_group_by]
+    sort_key_params = ' -k '.join(
+          ','.join([str(idx + 1),str(idx + 1)]) for idx in column_idxs_to_sort_by)
+    sort_cmd = 'sort -t{0} -k {1}'.format(self.delimiter, sort_key_params)
+
+    count_cmds = [
+      'cut -d, -f{0}'.format(columns),
+      sort_cmd,
+      'uniq -c',
+      "awk -F' ' '{ print $2, $1 }'"
+      ]
+    count_values = Table.from_cmd('count_vals', count_cmds, columns_to_group_by, self.delimiter)
+
+    group_cmds = [
+      'cut -d, -f{0}'.format(columns),
+      sort_cmd + ' -u'
+      ]
+    group_values = Table.from_cmd('group_vals', count_cmds, columns_to_group_by, self.delimiter)
     
 
 

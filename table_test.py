@@ -95,23 +95,28 @@ class TableTest(unittest.TestCase):
 
     # group by col_a, col_b should have a row for every value of col_a x col_b, even if that value
     # is NULL
-    # this will not include rows for col_a values that have zero non-null col_b's
-    # not sure how to do that yet
+    # prepend the command list with a background fifo join for each aggregate function
+    # column renaming and reordering comes at the end of these joins
+    # given n aggregate functions, we have n+1 fifos b/c we need one fifo for the group-by
+    # after where statements, a base tee ends in the group-by fifo and all agg funcs are within it
     cmds_expected = [
-      'echo -e "1,x\n2,w\n2,y\n3,z"', 
-      'tee <(',
+      'join -a 2 count_col_b_group_by_col_a_fifo group_by_col_a_fifo', # this join should be the result of a left-join query
+      "awk -F' ' '{ if($2=="") $2=0; print}'",  # no pipe
+      '&',
+
+      'echo -e "1,\n2,r\n2,b\n3,b"',
+      'tee >(',
       [
-        'cut -d, -f1',
-        'sort -t, -k 1.1',
-        'uniq -c',
-        '> count_col_b_group_by_col_a_fifo'
+        "awk -F',' '{ if($2 != \"\") print }'", # this is a Table of the group vars and aggregate function, grouped by the group vars
+        'cut -d, -f1'
+        'sort -t, -k 1.1'
+        'uniq -c'
+        "awk -F' ' '{ print $2, $1 }'", # no pipe
+        "> count_col_b_group_by_col_a_fifo)"
       ],
-      ')',
-      'cut -d, -f1',
-      'sort -t, -k 1.1',
-      '> group_by_col_a_fifo',
-      'join  <(group_by_col_a_fifo) <(count_col_b_group_by_col_a_fifo)'
-    ]
+      "cut -d, -f1",
+      "sort -t, -k 1.1 -u", # no pipe
+      "> group_by_col_a_fifo"  # this is another Table of no aggregate function, only all unique values of the group vars
 
     self.assertEqual(cmds_actual, cmds_expected)
 

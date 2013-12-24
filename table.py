@@ -209,13 +209,6 @@ class Table:
       self.delimiter, condition_str, columns)
     self.cmds.append(awk_cmd)
 
-  def group_by(self, columns_to_group_by, aggregate_function):
-    """Given a set of columns and an aggregate function, sort the Table by that set of columns and
-    direct output to that function."""
-
-    
-
-
   def get_cmd_str(self, output_column_names = False):
     """Return a string of commands whose output is the contents of this Table.""" 
 

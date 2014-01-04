@@ -209,31 +209,63 @@ class Table:
       self.delimiter, condition_str, columns)
     self.cmds.append(awk_cmd)
 
-  def group_by(self, columns_to_group_by, aggregate_function):
-    """Given a set of columns and an aggregate function, create and join two Tables to represent
-    the result of that aggregate function."""
+  def group_by(self, columns_to_group_by):
+    """De-duplicate rows by the given columns to group by and drop all other columns."""
 
     cut_columns = ','.join([str(self.column_idxs[c][0] + 1) for c in columns_to_group_by])
 
-    column_idxs_to_sort_by = [self.column_idxs[col][0] for col in columns_to_group_by]
-    sort_key_params = ' -k '.join(
-          ','.join([str(idx + 1),str(idx + 1)]) for idx in column_idxs_to_sort_by)
-    sort_cmd = 'sort -t{0} -k {1}'.format(self.delimiter, sort_key_params)
-
-    count_cmds = [
-      'cut -d, -f{0}'.format(columns),
-      sort_cmd,
-      'uniq -c',
-      "awk -F' ' '{ print $2, $1 }'"
-      ]
-    count_values = Table.from_cmd('count_vals', count_cmds, columns_to_group_by, self.delimiter)
-
     group_cmds = [
-      'cut -d, -f{0}'.format(columns),
+      'cut -d, -f{0}'.format(cut_columns),
       sort_cmd + ' -u'
       ]
     group_values = Table.from_cmd('group_vals', count_cmds, columns_to_group_by, self.delimiter)
     
+
+  def count(self, columns_to_group_by, count_column_name = None, distinct = False):
+    """Count the number of rows for each set of values found for the given columns to group by.
+
+    :param columns_to_group_by: a list of column names or Column objects to group by
+    :param count_column_name: the name of a column for which only non-null values are counted.
+      If None, then count all rows. Defaults to None.
+    :param distinct: if True, duplicates do not count. Defaults to False.
+
+    Sets of group-by values with zero count will not be retained.
+    """
+
+    cmds = []
+
+    if columns_to_group_by:
+
+      column_idxs_to_group_by = [self.column_idxs[c][0] + 1 for c in columns_to_group_by]
+      cut_columns = ','.join([str(c) for c in column_idxs_to_group_by])
+      sort_key_params = ' -k '.join([str(idx) + ',' + str(idx) for idx in column_idxs_to_group_by])
+      sort_cmd = 'sort -t{0} -k {1}'.format(self.delimiter, sort_key_params)
+
+      if distinct:
+        sort_cmd = sort_cmd + ' -u'
+
+      cmds = cmds + [
+        'cut -d, -f{0}'.format(cut_columns),
+        sort_cmd,
+        'uniq -c',
+        "awk -F' ' '{ print $2, $1 }'"
+      ]
+
+    else:
+
+      cmds = cmds + ['wc -l']
+      if distinct:
+        sort_cmd = ['sort -u']
+        cmds = sort_cmd + cmds
+
+    if count_column_name:
+      count_column_idx = self.column_idxs[count_column_name][0] + 1
+      cmds = ["awk -F'{0}' '{{ if(${1} != \"\") print }}".format(self.delimiter, count_column_idx)] + cmds
+
+    self.cmds = self.cmds + cmds
+
+  def tee(self, cmds):
+    """Tees the output of this Table's commands to the given list of cmds."""
 
 
   def get_cmd_str(self, output_column_names = False):

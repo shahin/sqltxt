@@ -2,6 +2,31 @@ from column import Column
 import logging
 import re
 
+def compose_cmd_str(cmds, output_target = None):
+  """Given a Table's commands, return the executable string for those commands.
+  
+  :param cmds: a list of command strings and dictionaries of command strings keyed by outputs
+  """
+
+  cmd_strs = []
+
+  for cmd in cmds:
+    if isinstance(cmd, str):
+      cmd_strs.append(cmd)
+    else:
+      # expecting a dictionary-like set of commands keyed by output names
+      targets = list(cmd.keys())
+      targets.sort()
+      for target in targets:
+        cmd_strs.append('tee >(' + compose_cmd_str(cmd[target], target) + ')')
+
+  composed_cmd_str = ' | '.join(cmd_strs)
+  if output_target:
+    composed_cmd_str += (' > ' + output_target)
+
+  return composed_cmd_str
+
+
 class Table:
   """Translate abstract data-manipulation operations to commands that perform them.
 
@@ -34,6 +59,8 @@ class Table:
 
     self.sorted_by = []
     self.outfile_name = "{0}.out".format(name)
+
+    self.fifos = []
 
     self.column_idxs = self._compute_column_indices()
 
@@ -264,8 +291,20 @@ class Table:
 
     self.cmds = self.cmds + cmds
 
-  def tee(self, cmds):
-    """Tees the output of this Table's commands to the given list of cmds."""
+  def tee(self, cmds, output_fifo_name = None):
+    """Tees the output of this Table's commands to the given list of cmds and returns name of 
+    the output fifo.
+
+    :param cmds: a list of commands to perform on teed input
+    :param output_fifo_name: optional, the name of the output fifo
+    """
+
+    if not output_fifo_name:
+      output_fifo_name = '_'.join([self.name, str(len(self.fifos))])
+    self.fifos.append(output_fifo_name)
+
+    tee_cmd = { output_fifo_name: cmds }
+    self.cmds.append(tee_cmd)
 
 
   def get_cmd_str(self, output_column_names = False):
@@ -277,7 +316,7 @@ class Table:
     if self.is_file:
       cmds = ['tail +2 {0}.{1}'.format(self.name, self.extension)] + cmds 
 
-    cmd_str = ' | '.join(cmds)
+    cmd_str = compose_cmd_str(cmds)
 
     # write column names
     if output_column_names:

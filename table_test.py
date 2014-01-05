@@ -1,5 +1,6 @@
 import unittest
 from table import Table 
+from table import compose_cmd_str
 from column import Column
 
 class TableTest(unittest.TestCase):
@@ -117,8 +118,9 @@ class TableTest(unittest.TestCase):
       "cut -d, -f1",
       "sort -t, -k 1.1 -u", # no pipe
       "> group_by_col_a_fifo"  # this is another Table of no aggregate function, only all unique values of the group vars
+    ]
 
-    self.assertEqual(cmds_actual, cmds_expected)
+    #self.assertEqual(cmds_actual, cmds_expected)
 
   def test_count_var(self):
 
@@ -130,25 +132,61 @@ class TableTest(unittest.TestCase):
     # is NULL
     # this will not include rows for col_a values that have zero non-null col_b's
     # not sure how to do that yet
-    cmds_expected = [
-      'echo -e "1,x\n2,w\n2,y\n3,z"', 
-      'tee <(',
-      [
-        < 'awk \'BEGIN { FS = "," }; { if($2 != "") print }\'' >
+    cmds_expected = [{
+      'group_by_col_a_fifo': [
+        'echo -e "1,x\n2,w\n2,y\n3,z"', 
+        {
+          'count_col_b_group_by_col_a_fifo': [
+            'awk \'BEGIN { FS = "," }; { if($2 != "") print }\''
+            'cut -d, -f1',
+            'sort -t, -k 1.1',
+            'uniq -c'
+            ]
+        },
         'cut -d, -f1',
-        'sort -t, -k 1.1',
-        'uniq -c',
-        '> count_col_b_group_by_col_a_fifo'
-      ],
-      ')',
-      'cut -d, -f1',
-      'sort -t, -k 1.1',
-      '> group_by_col_a_fifo',
-      'join  <(group_by_col_a_fifo) <(count_col_b_group_by_col_a_fifo)'
+        'sort -t, -k 1.1'
+      ]
+    }]
+    #  'join  <(group_by_col_a_fifo) <(count_col_b_group_by_col_a_fifo)'
+
+    #self.assertEqual(cmds_actual, cmds_expected)
+
+
+  def test_compose_cmd_str_from_single_depth_commands(self):
+
+    cmds = ['echo -e "1,2,3,4"', 'cut -d, -f2-4']
+    str_expected = 'echo -e "1,2,3,4" | cut -d, -f2-4'
+    str_actual = compose_cmd_str(cmds)
+    self.assertEqual(str_actual, str_expected)
+
+  def test_compose_cmd_str_from_two_depth_commands(self):
+
+    cmds = [
+      'echo -e "1,2,3,4"', 
+      { 'teed_out': [ 'cut -d, -f1-3' ] },
+      'cut -d, -f2-4'
+    ]
+    str_expected = 'echo -e "1,2,3,4" | tee >(cut -d, -f1-3 > teed_out) | cut -d, -f2-4'
+    str_actual = compose_cmd_str(cmds)
+    self.assertEqual(str_actual, str_expected)
+
+  def test_compose_cmd_str_from_two_depth_commands_with_multiple_tees(self):
+
+    cmds = [
+      'echo -e "1,2,3,4"', 
+      { 'teed_out': [ 'cut -d, -f1-3' ], 'another_teed_out': [ 'cut -d, -f1,4' ] },
+      'cut -d, -f2-4'
     ]
 
-    self.assertEqual(cmds_actual, cmds_expected)
+    str_expected = ' | '.join([
+      'echo -e "1,2,3,4"',
+      'tee >(cut -d, -f1,4 > another_teed_out)',
+      'tee >(cut -d, -f1-3 > teed_out)',
+      'cut -d, -f2-4'
+    ])
 
+    str_actual = compose_cmd_str(cmds)
+    self.assertEqual(str_actual, str_expected)
 
   def test_get_cmd_str(self):
     

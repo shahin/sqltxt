@@ -20,4 +20,5 @@ cut -d, -f1 |\
 sort -t, -k 1.1 -u \
 > $SQLTXT_TMPDIR/group_by_col_a;
 
-rm -rf $SQLTXT_TMPDIR
+rm -rf $SQLTXT_TMPDIR;
+unset SQLTXT_TMPDIR;

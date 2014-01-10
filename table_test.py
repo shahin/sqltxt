@@ -159,6 +159,20 @@ class TableTest(unittest.TestCase):
     str_actual = compose_cmd_str(cmds)
     self.assertEqual(str_actual, str_expected)
 
+  def test_compose_cmd_str_with_terminated_commands(self):
+
+    cmds = [['mkfifo testfifo'], ['rm testfifo'], 'echo -e "1,2,3,4"', 'cut -d, -f2-4']
+    str_expected = 'mkfifo testfifo; rm testfifo; echo -e "1,2,3,4" | cut -d, -f2-4'
+    str_actual = compose_cmd_str(cmds)
+    self.assertEqual(str_actual, str_expected)
+
+  def test_compose_cmd_str_with_terminated_background_commands(self):
+
+    cmds = [['mkfifo testfifo'], ['rm testfifo', '&'], 'echo -e "1,2,3,4"', 'cut -d, -f2-4']
+    str_expected = 'mkfifo testfifo; rm testfifo & echo -e "1,2,3,4" | cut -d, -f2-4'
+    str_actual = compose_cmd_str(cmds)
+    self.assertEqual(str_actual, str_expected)
+
   def test_compose_cmd_str_from_two_depth_commands(self):
 
     cmds = [

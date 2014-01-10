@@ -11,16 +11,30 @@ def compose_cmd_str(cmds, output_target = None):
   cmd_strs = []
 
   for cmd in cmds:
+
     if isinstance(cmd, str):
-      cmd_strs.append(cmd)
+      # just a regular command within a pipeline
+      cmd_strs.append(cmd + ' | ')
+
+    elif isinstance(cmd, list):
+      # a discrete pipeline that is terminated at the end
+      cmd_str = compose_cmd_str(cmd)
+      if cmd_str[-1] == '&':
+        # run this pipeline as a background process
+        cmd_str = cmd_str[:-1].rstrip(' |') + ' & '
+      else:
+        cmd_str += '; '
+      cmd_strs.append(cmd_str)
+
     else:
+      # a command that should be teed into a fifo within a pipeline
       # expecting a dictionary-like set of commands keyed by output names
       targets = list(cmd.keys())
       targets.sort()
       for target in targets:
-        cmd_strs.append('tee >(' + compose_cmd_str(cmd[target], target) + ')')
+        cmd_strs.append('tee >(' + compose_cmd_str(cmd[target], target) + ')' + ' | ')
 
-  composed_cmd_str = ' | '.join(cmd_strs)
+  composed_cmd_str = ''.join(cmd_strs).rstrip(' |')
   if output_target:
     composed_cmd_str += (' > ' + output_target)
 

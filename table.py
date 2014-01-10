@@ -38,6 +38,8 @@ class Table:
   VALID_IDENTIFIER_REGEX = '^[a-zA-Z_][a-zA-Z0-9_.]*$'
   LOG = logging.getLogger(__name__)
 
+  fifos = []
+
   def __str__(self):
     return self.name
 
@@ -59,8 +61,6 @@ class Table:
 
     self.sorted_by = []
     self.outfile_name = "{0}.out".format(name)
-
-    self.fifos = []
 
     self.column_idxs = self._compute_column_indices()
 
@@ -240,13 +240,10 @@ class Table:
     """De-duplicate rows by the given columns to group by and drop all other columns."""
 
     cut_columns = ','.join([str(self.column_idxs[c][0] + 1) for c in columns_to_group_by])
-
     group_cmds = [
       'cut -d, -f{0}'.format(cut_columns),
       sort_cmd + ' -u'
       ]
-    group_values = Table.from_cmd('group_vals', count_cmds, columns_to_group_by, self.delimiter)
-    
 
   def count(self, columns_to_group_by, count_column_name = None, distinct = False):
     """Count the number of rows for each set of values found for the given columns to group by.
@@ -271,7 +268,10 @@ class Table:
       if distinct:
         sort_cmd = sort_cmd + ' -u'
 
-      cmds = cmds + [
+      fifo_name = 'count_group_by_' + str(len(self.fifos))
+      self.fifos.append(fifo_name)
+
+      cmds = [
         'cut -d, -f{0}'.format(cut_columns),
         sort_cmd,
         'uniq -c',
@@ -280,32 +280,16 @@ class Table:
 
     else:
 
-      cmds = cmds + ['wc -l']
+      cmds = ['wc -l']
       if distinct:
-        sort_cmd = ['sort -u']
-        cmds = sort_cmd + cmds
+        cmds = ['sort -u'] + cmds
 
     if count_column_name:
+      # filter out null values for the column passed to the count function
       count_column_idx = self.column_idxs[count_column_name][0] + 1
       cmds = ["awk -F'{0}' '{{ if(${1} != \"\") print }}".format(self.delimiter, count_column_idx)] + cmds
 
     self.cmds = self.cmds + cmds
-
-  def tee(self, cmds, output_fifo_name = None):
-    """Tees the output of this Table's commands to the given list of cmds and returns name of 
-    the output fifo.
-
-    :param cmds: a list of commands to perform on teed input
-    :param output_fifo_name: optional, the name of the output fifo
-    """
-
-    if not output_fifo_name:
-      output_fifo_name = '_'.join([self.name, str(len(self.fifos))])
-    self.fifos.append(output_fifo_name)
-
-    tee_cmd = { output_fifo_name: cmds }
-    self.cmds.append(tee_cmd)
-
 
   def get_cmd_str(self, output_column_names = False):
     """Return a string of commands whose output is the contents of this Table.""" 

@@ -1,7 +1,7 @@
 import unittest
 from column import Column 
 
-class ColumnTest(unittest.TestCase):
+class ColumnUnitTest(unittest.TestCase):
 
   def test_columns_with_the_same_name_are_equal(self):
     self.assertEqual(Column('col_a'), Column('col_a'))

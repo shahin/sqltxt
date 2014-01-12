@@ -4,7 +4,7 @@ from query import Query
 from column import Column
 import subprocess
 
-class QueryTest(unittest.TestCase):
+class QueryFunctionalTest(unittest.TestCase):
 
   def setUp(self):
 
@@ -55,6 +55,7 @@ class QueryTest(unittest.TestCase):
     table_expected_out = subprocess.check_output(['/bin/bash', '-c', table_expected.get_cmd_str(output_column_names=True)])
     table_actual_out = subprocess.check_output(['/bin/bash', '-c', table_actual.get_cmd_str(output_column_names=True)])
     self.assertEqual(table_actual_out, table_expected_out)
+
   def test_wildcard_selects_all_columns(self):
     
     q = Query(

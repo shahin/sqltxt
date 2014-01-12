@@ -95,10 +95,9 @@ def _get_join_indices(left_table, right_table, join_conditions):
     for join_var in join_vars:
 
       join_col = Column(join_var)
-      if join_col.table_name == left_table.name:
+      if join_col.table_name.upper() == left_table.name.upper():
         left_indices.append(left_table.column_idxs[join_col][0])
-      elif join_col.table_name == right_table.name:
-        LOG.debug('Right column idxs: {0}'.format(right_table.column_idxs))
+      elif join_col.table_name.upper() == right_table.name.upper():
         right_indices.append(right_table.column_idxs[join_col][0])
 
   return left_indices, right_indices

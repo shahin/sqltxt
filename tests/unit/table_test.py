@@ -8,9 +8,7 @@ class TableUnitTest(unittest.TestCase):
   def setUp(self):
 
     table_header = ["col_a", "col_b"]
-    table_contents = """1,1
-2,3
-3,2"""
+    table_contents = """1,1\n2,3\n3,2"""
 
     self.table_a = Table.from_cmd(
       name = 'table_a', 
@@ -19,10 +17,7 @@ class TableUnitTest(unittest.TestCase):
       )
 
     table_header = ["col_a", "col_z"]
-    table_contents = """1,w
-2,x
-2,y
-5,z"""
+    table_contents = """1,w\n2,x\n2,y\n5,z"""
 
     self.table_b = Table.from_cmd(
       name = 'table_b', 
@@ -244,3 +239,12 @@ class TableUnitTest(unittest.TestCase):
     header_actual = _join_columns([Column('table_a.col_a'), Column('table_a.col_b')], [0], [Column('table_b.col_a'), Column('table_b.col_z')], [0])
     parent_col = Column('table_b.col_a')
     self.assertEqual([header_actual[0]], parent_col.match(header_actual,True))
+
+  def test_join_tables_joins_two_tables(self):
+
+    from table import join_tables
+    table_actual = join_tables(self.table_a, self.table_b, [['table_a.col_a', '=', 'table_b.col_a']])
+    cmd_expected = 'echo "col_a,col_b,col_z"; join -t, -1 1 -2 1 <({0}) <({1})'.format(self.table_a.get_cmd_str(), self.table_b.get_cmd_str())
+    cmd_actual = table_actual.get_cmd_str(output_column_names=True)
+    
+    self.assertEqual(cmd_actual, cmd_expected)

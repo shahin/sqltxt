@@ -1,6 +1,6 @@
 from sql_tokenizer import SqlTokenizer
 from column import Column
-from table import Table
+from table import Table, join_tables
 import logging
 
 class Query:
@@ -65,9 +65,8 @@ class Query:
       right_subquery = Query(self.from_clauses[1:], [], self.column_names, is_top_level = False)
       self.right_table = right_subquery.generate_table()
 
-      # this is cryptic. self.join? right_subquery.from_clauses? a more functional approach
-      # would be easier to test
-      result_table = self.join(right_subquery.from_clauses[0][3:])
+      join_conditions = right_subquery.from_clauses[0][3:]
+      result_table = join_tables(self.left_table, self.right_table, join_conditions)
 
       self.missing_select_columns = []
       if right_subquery.missing_select_columns:

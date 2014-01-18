@@ -139,6 +139,12 @@ class Table:
 
   fifos = []
 
+  SUPPORTED_AGGREGATE_FUNCTIONS = ['COUNT']
+
+  # TODO: make the output command str use column aliases instead of column names
+  # TODO: test that an aggregate function Column gets an empty index list in compute column idxs
+  # TODO: stop passing aggregate functions down through subqueries since they don't exist on tables and won't be applied until the top-level query anyway
+
   def __str__(self):
     return self.name
 
@@ -154,6 +160,12 @@ class Table:
     self.columns = columns
     self.columns = [self._qualify_column(col) for col in self.columns]
     self.LOG.debug('{0} has columns {1}'.format(self, self.columns))
+
+    # verify that all aggregate functions are supported by this Table
+    for column in self.columns:
+      if column.is_aggregate_function:
+        if column.alias not in self.__class__.SUPPORTED_AGGREGATE_FUNCTIONS:
+          raise ValueError("Aggregate function '{0}' is not supported.".format(column.alias))
 
     self.is_file = is_file
     self.extension = extension
@@ -344,6 +356,8 @@ class Table:
       sort_cmd + ' -u'
       ]
 
+    # join any aggregate function FIFOs by the group-by variables
+
   def count(self, columns_to_group_by, count_column_name = None, distinct = False):
     """Count the number of rows for each set of values found for the given columns to group by.
 
@@ -388,6 +402,11 @@ class Table:
       count_column_idx = self.column_idxs[count_column_name][0] + 1
       cmds = ["awk -F'{0}' '{{ if(${1} != \"\") print }}".format(self.delimiter, count_column_idx)] + cmds
 
+    # TODO: instead of inserting the aggregate function tee commands explicitly, create a new table and tee into it
+    # this way we can use the output_target Table attribute for both the aggfunc tees and the query result
+    # 1. create the fifo
+    # 2. create the aggfunc table
+    # 3. tee into the aggfunc table
     self.cmds = self.cmds + cmds
 
   def get_cmd_str(self, output_column_names = False):

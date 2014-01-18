@@ -248,3 +248,21 @@ class TableUnitTest(unittest.TestCase):
     cmd_actual = table_actual.get_cmd_str(output_column_names=True)
     
     self.assertEqual(cmd_actual, cmd_expected)
+
+  def test_unsupported_aggregate_functions_raise_exception(self):
+
+    Table.SUPPORTED_AGGREGATE_FUNCTIONS = ['COUNT']
+
+    # should not raise
+    t = Table.from_cmd(
+      'table_a',
+      cmd = 'echo -e "1,2,3,4"',
+      columns = ['count(*)']
+    )
+
+    # should raise
+    self.assertRaises(ValueError, Table.from_cmd, 
+      'table_a', 
+      cmd = 'echo -e "1,2,3,4"', 
+      columns = ['sum(*)'] 
+    )

@@ -9,10 +9,17 @@ class Column:
     self.name = token_string_parts[-1]
     self.table_name = ''
     self.ancestors = ancestors
+    self.alias = self.name
 
     # assign a table name if there is one
     if len(token_string_parts) == 2:
       self.table_name = token_string_parts[0] 
+
+    # treat aggregate functions specially
+    self.is_aggregate_function = False
+    if '(' in self.name:
+      self.is_aggregate_function = True
+      self.alias = self.name.split('(')[0]
 
   @property
   def name(self):

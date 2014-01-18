@@ -55,3 +55,15 @@ class ColumnUnitTest(unittest.TestCase):
 
     matching_columns = col_a.ancestor_match([col_a_child, col_b])
     self.assertEqual(matching_columns, [col_a_child])
+
+  def test_aggregate_function_identified(self):
+    col_a = Column('col_a')
+    count_col = Column('count(*)')
+
+    self.assertFalse(col_a.is_aggregate_function)
+    self.assertTrue(count_col.is_aggregate_function)
+
+  def test_aggregate_functions_are_aliased_without_parentheses(self):
+    count_col = Column('count(*)')
+    self.assertEqual(count_col.alias,'COUNT')
+    

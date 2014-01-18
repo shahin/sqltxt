@@ -9,17 +9,10 @@ class Column:
     self.name = token_string_parts[-1]
     self.table_name = ''
     self.ancestors = ancestors
-    self.alias = self.name
 
     # assign a table name if there is one
     if len(token_string_parts) == 2:
       self.table_name = token_string_parts[0] 
-
-    # treat aggregate functions specially
-    self.is_aggregate_function = False
-    if '(' in self.name:
-      self.is_aggregate_function = True
-      self.alias = self.name.split('(')[0]
 
   @property
   def name(self):
@@ -27,8 +20,14 @@ class Column:
 
   @name.setter
   def name(self, value):
-    self._cased_name = value
+    self.alias = value
     self._name = value.upper()
+
+    if '(' in self.name:
+      self.is_aggregate_function = True
+      self.alias = self.name.split('(')[0]
+    else:
+      self.is_aggregate_function = False
 
   @property
   def table_name(self):
@@ -49,7 +48,7 @@ class Column:
     return (hash(self.name) ^ hash(self.table_name))
 
   def __str__(self):
-    return self._cased_name
+    return self.alias
 
   def __repr__(self):
     if self.table_name:

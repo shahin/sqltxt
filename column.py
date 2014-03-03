@@ -3,7 +3,7 @@ class Column:
   table name on which it appears. Columns are case-insensitive.
   """
 
-  def __init__(self, token_string, ancestors = []):
+  def __init__(self, token_string, alias = None, ancestors = []):
 
     token_string_parts = token_string.split('.')
     self.name = token_string_parts[-1]
@@ -13,6 +13,10 @@ class Column:
     # assign a table name if there is one
     if len(token_string_parts) == 2:
       self.table_name = token_string_parts[0] 
+
+    self.alias = alias
+    if self.alias is None:
+      self.alias = self._name
 
   @property
   def name(self):

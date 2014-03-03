@@ -11,6 +11,7 @@ from pyparsing import (
   ZeroOrMore,
   Combine,
   Optional,
+  Suppress,
   StringEnd,
 
   CaselessLiteral,
@@ -32,12 +33,18 @@ class SqlTokenizer:
     from_tok = Keyword('from', caseless=True) 
 
     # for parsing select-from statements
-    idr = Word(alphas + '*', alphanums + '_*$').setName('identifier')
+    idr = Word(alphas + '*', alphanums + '_*').setName('identifier')
     column_idr = delimitedList(idr, '.', combine=True)
     aggregate_function = Combine(Keyword('count') + '(' + Group(delimitedList(column_idr)) + ')')
-    column_list = Group(delimitedList((column_idr ^ aggregate_function.setResultsName('aggregate_functions', listAllMatches=True))))
+
+    column_list = delimitedList(
+        Group(column_idr + ZeroOrMore(Suppress('as') + column_idr)) ^ 
+        Group(aggregate_function + ZeroOrMore(Suppress('as') + column_idr)
+          ).setResultsName('aggregate_functions', listAllMatches = True)
+        )
+
     table_idr = Upcase(delimitedList(idr, '.', combine=True))
-    table_idr_list = Group(delimitedList(table_idr))
+    table_idr_list = delimitedList(table_idr)
 
     # for parsing where statements
     and_ = Keyword('and', caseless=True)

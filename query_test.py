@@ -28,7 +28,7 @@ class QueryTest(unittest.TestCase):
 
   def test_select(self):
 
-    q = Query([['table_a']], [], ['col_b'])
+    q = Query([['table_a']], [], [['col_b']])
     table_actual = q.generate_table()
 
     table_expected = Table.from_cmd(
@@ -43,7 +43,7 @@ class QueryTest(unittest.TestCase):
           
   def test_where(self):
 
-    q = Query([['table_a']], [['col_b', '<', '3']], ['col_a'])
+    q = Query([['table_a']], [['col_b', '<', '3']], [['col_a']])
     table_actual = q.generate_table()
 
     table_expected = Table.from_cmd(
@@ -62,7 +62,7 @@ class QueryTest(unittest.TestCase):
     q = Query(
       from_clauses = [['table_a'],[['inner','join'],'table_b','on',['table_a.col_a', '=', 'table_b.col_a']]], 
       where_clauses = [], 
-      column_names = ['col_a', 'col_b', 'col_z'])
+      column_definitions = [['col_a'], ['col_b'], ['col_z']])
     t = q.generate_table()
     header_actual = t.columns
     header_expected = ['col_a', 'col_b', 'col_z']
@@ -74,7 +74,7 @@ class QueryTest(unittest.TestCase):
     q = Query(
       from_clauses = [['table_a'],[['inner','join'],'table_b','on',['table_a.col_a', '=', 'table_b.col_a']]], 
       where_clauses = [], 
-      column_names = ['col_a', 'col_b', 'col_z'])
+      column_definitions = [['col_a'], ['col_b'], ['col_z']])
     t = q.generate_table()
     header_actual = t.columns
 
@@ -86,13 +86,13 @@ class QueryTest(unittest.TestCase):
     q = Query(
       from_clauses = [['table_a'],[['inner','join'],'table_b','on',['table_a.col_a', '=', 'table_b.col_a']]], 
       where_clauses = [], 
-      column_names = ['col_a', 'col_b', 'col_z'])
+      column_definitions = [['col_a'], ['col_b'], ['col_z']])
 
     table_actual = q.generate_table()
     table_expected = Table.from_cmd(
       name = 'table_a', 
       cmd = 'echo -e "1,1,w\n2,3,x\n2,3,y"',
-      columns = ['col_a','col_b','col_z']
+      columns = ['col_a', 'col_b', 'col_z']
       )
 
     table_expected_out = subprocess.check_output(['/bin/bash', '-c', table_expected.get_cmd_str(output_column_names=True)])
@@ -105,7 +105,7 @@ class QueryTest(unittest.TestCase):
     q = Query(
       from_clauses = [['table_a'],[['inner','join'],'table_b','on',['table_a.col_b', '=', 'table_b.col_a']]], 
       where_clauses = [], 
-      column_names = ['col_b', 'col_a', 'col_z'])
+      column_definitions = [['col_b'], ['col_a'], ['col_z']])
     table_actual = q.generate_table()
     cmd_actual = table_actual.get_cmd_str(output_column_names=True)
     cmd_expected = \
@@ -123,7 +123,7 @@ class QueryTest(unittest.TestCase):
     q = Query(
       from_clauses = [['table_a']], 
       where_clauses = [], 
-      column_names = ['*'])
+      column_definitions = ['*'])
     table_actual = q.generate_table()
     cmd_actual = table_actual.get_cmd_str(output_column_names=True)
     cmd_expected = 'echo "col_a,col_b"; tail +2 TABLE_A.txt'
@@ -139,7 +139,7 @@ class QueryTest(unittest.TestCase):
     q = Query(
       from_clauses = [['table_a'],[['inner','join'],'table_b','on',['table_a.col_b', '=', 'table_b.col_a']]], 
       where_clauses = [], 
-      column_names = ['*'])
+      column_definitions = ['*'])
     table_actual = q.generate_table()
     cmd_actual = table_actual.get_cmd_str(output_column_names=True)
     cmd_expected = \

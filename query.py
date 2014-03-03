@@ -8,15 +8,23 @@ class Query:
 
   LOG = logging.getLogger(__name__)
 
-  def __init__(self, from_clauses, where_clauses, column_names = None, is_top_level = True):
+  def __init__(self, from_clauses, where_clauses, column_definitions = None, is_top_level = True):
     """Instantiate a new Query from tokenized SQL clauses."""
 
     self.is_top_level = is_top_level
 
     self.from_clauses = from_clauses
     self.where_clauses = where_clauses
-    self.column_names = column_names
-    self.columns = [Column(column_name) for column_name in self.column_names]
+    self.column_definitions = column_definitions
+
+    self.columns = []
+    for column_definition in column_definitions:
+      name = column_definition[0]
+      try:
+        alias = column_definition[1]
+      except:
+        alias = column_definition[0]
+      self.columns.append(Column(name))
 
     self.missing_select_columns = None
 
@@ -62,7 +70,7 @@ class Query:
       # instantiate the right Table as the result of a Query on all tables other than
       # the left-most
 
-      right_subquery = Query(self.from_clauses[1:], [], self.column_names, is_top_level = False)
+      right_subquery = Query(self.from_clauses[1:], [], self.column_definitions, is_top_level = False)
       self.right_table = right_subquery.generate_table()
 
       # this is cryptic. self.join? right_subquery.from_clauses? a more functional approach

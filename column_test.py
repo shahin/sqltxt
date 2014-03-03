@@ -50,7 +50,7 @@ class ColumnTest(unittest.TestCase):
 
   def test_column_matches_columns_with_matching_ancestors(self):
     col_a = Column('table_a.col_a')
-    col_a_child = Column('table_a_child.col_a', [col_a])
+    col_a_child = Column('table_a_child.col_a', ancestors = [col_a])
     col_b = Column('table_b.col_b')
 
     matching_columns = col_a.ancestor_match([col_a_child, col_b])

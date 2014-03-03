@@ -7,16 +7,13 @@ class Column:
 
     token_string_parts = token_string.split('.')
     self.name = token_string_parts[-1]
+    self.alias = alias
     self.table_name = ''
     self.ancestors = ancestors
 
     # assign a table name if there is one
     if len(token_string_parts) == 2:
       self.table_name = token_string_parts[0] 
-
-    self.alias = alias
-    if self.alias is None:
-      self.alias = self._name
 
   @property
   def name(self):
@@ -26,6 +23,16 @@ class Column:
   def name(self, value):
     self._cased_name = value
     self._name = value.upper()
+
+  @property
+  def alias(self):
+    if self._alias is None:
+      return self._cased_name
+    return self._alias
+
+  @alias.setter
+  def alias(self, value):
+    self._alias = value
 
   @property
   def table_name(self):
@@ -46,7 +53,7 @@ class Column:
     return (hash(self.name) ^ hash(self.table_name))
 
   def __str__(self):
-    return self._cased_name
+    return self.alias
 
   def __repr__(self):
     if self.table_name:

@@ -100,7 +100,7 @@ class Table:
       elif col.table_name != self.name:
         # TODO: occurs primarily during Table initialization, may want to break out
         parent_col = col
-        col = Column('{0}.{1}'.format(self.name, str(col)), [parent_col])
+        col = Column('{0}.{1}'.format(self.name, str(col)), ancestors = [parent_col])
       return col
 
     col.table_name = self.name

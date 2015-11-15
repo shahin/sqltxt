@@ -37,6 +37,9 @@ class Column(object):
       return (self.name == other.name and self.table_name == other.table_name)
     return False
 
+  def __ne__(self, other):
+    return not self == other
+
   def __hash__(self):
     # ignore cased names that may have been used for initialization
     return (hash(self.name) ^ hash(self.table_name))

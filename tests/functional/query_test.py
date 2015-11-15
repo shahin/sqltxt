@@ -1,12 +1,17 @@
 import unittest
-from table import Table
-from query import Query 
-from column import Column
+import os
+from sqltxt.table import Table
+from sqltxt.query import Query 
+from sqltxt.column import Column
 import subprocess
 
 class QueryTest(unittest.TestCase):
 
   def setUp(self):
+
+    # TODO: replace this hack to make sure test files are found with fixtures
+    if 'tests/data' not in os.getcwd():
+      os.chdir(os.path.join(os.getcwd(), 'tests/data'))
 
     table_header = ["col_a", "col_b"]
     table_contents = """1,1\n2,3\n3,2"""

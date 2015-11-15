@@ -1,10 +1,15 @@
 import unittest
-from table import Table 
-from column import Column
+import os
+from sqltxt.table import Table 
+from sqltxt.column import Column
 
 class TableTest(unittest.TestCase):
 
   def setUp(self):
+
+    # TODO: replace this hack to make sure test files are found with fixtures
+    if 'tests/data' not in os.getcwd():
+      os.chdir(os.path.join(os.getcwd(), 'tests/data'))
 
     table_header = ["col_a", "col_b"]
     table_contents = """1,1

@@ -1,5 +1,5 @@
 import unittest
-from column import Column 
+from sqltxt.column import Column 
 
 class ColumnTest(unittest.TestCase):
 

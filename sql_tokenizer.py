@@ -20,7 +20,7 @@ from pyparsing import (
   nums
   )
 
-class SqlTokenizer:
+class SqlTokenizer(object):
   
   def __init__(self):
     self.grammar = self._build_grammar()

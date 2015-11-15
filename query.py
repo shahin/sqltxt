@@ -3,7 +3,7 @@ from column import Column
 from table import Table
 import logging
 
-class Query:
+class Query(object):
   """Create Tables and perform operations on them."""
 
   LOG = logging.getLogger(__name__)
@@ -52,10 +52,10 @@ class Query:
     # instantiate the left-most Table in all the where clauses
     first_from_clause_tokens = self.from_clauses[0]
     if len(first_from_clause_tokens) > 1:
-      # first where clause is a join clause
+      # first from clause is a join clause
       self.left_table = Table.from_filename(first_from_clause_tokens[1].upper())
     else:
-      # first where clause is not a join clause
+      # first from clause is not a join clause
       self.left_table = Table.from_filename(first_from_clause_tokens[0].upper())
 
     if len(self.from_clauses) > 1:

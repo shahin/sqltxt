@@ -1,4 +1,4 @@
-class Column:
+class Column(object):
   """Identifies a single named column of data, either by column name only or qualified by the
   table name on which it appears. Columns are case-insensitive.
   """

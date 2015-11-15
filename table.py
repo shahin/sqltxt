@@ -2,7 +2,7 @@ from column import Column
 import logging
 import re
 
-class Table:
+class Table(object):
   """Translate abstract data-manipulation operations to commands that perform them.
 
   A Table is a virtual representation of data. Operations on Tables are accumulated and

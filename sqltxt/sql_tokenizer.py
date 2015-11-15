@@ -17,7 +17,8 @@ from pyparsing import (
   quotedString,
   alphas,
   alphanums,
-  nums
+  nums,
+  printables
   )
 
 class SqlTokenizer(object):
@@ -36,8 +37,7 @@ class SqlTokenizer(object):
     column_idr = delimitedList(idr, '.', combine=True)
     aggregate_function = Combine(Keyword('count') + '(' + Group(delimitedList(column_idr)) + ')')
     column_list = Group(delimitedList((column_idr ^ aggregate_function.setResultsName('aggregate_functions', listAllMatches=True))))
-    table_idr = Upcase(delimitedList(idr, '.', combine=True))
-    table_idr_list = Group(delimitedList(table_idr))
+    table_idr = Word(''.join([c for c in printables if c not in "?"])).setName('identifier')
 
     # for parsing where statements
     and_ = Keyword('and', caseless=True)

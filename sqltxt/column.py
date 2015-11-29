@@ -51,5 +51,13 @@ class Column(object):
 
     def __repr__(self):
         if self.qualifiers:
-            return '.'.join([str(sorted(self.qualifiers)), self.name])
+            return '.'.join([qualifiers_to_str(self.qualifiers), self.name])
         return self.name
+
+def qualifiers_to_str(qualifiers):
+    if len(qualifiers) == 0:
+        return ''
+    elif len(qualifiers) == 1:
+        return qualifiers[0]
+    else:
+        return '(' + '|'.join(sorted(qualifiers)) + ')'

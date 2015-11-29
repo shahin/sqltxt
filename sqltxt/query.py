@@ -119,7 +119,7 @@ class Query(object):
 def _normalize_sql_boolean_operators(sql_where_clauses):
     """Given tokenized SQL where clauses, return their translations to normal boolean operators."""
 
-    sql_to_bool_operators = {
+    comparison_operators = {
         '=': '==',
         'eq': '==',
         'ne': '!=',
@@ -128,13 +128,20 @@ def _normalize_sql_boolean_operators(sql_where_clauses):
         'le': '<=',
         'lt': '<'
         }
+    logical_operators = {
+        'and': ' && ',
+        'or': ' || ',
+        }
 
     bool_where_clauses = []
 
     # translate SQL-specific boolean operators to the tokens that normal languages use
     if len(sql_where_clauses) > 0:
-      for clause in sql_where_clauses:
-        bool_clause = [ sql_to_bool_operators.get(token, token) for token in clause ]
-        bool_where_clauses.append(bool_clause)
+        for clause in sql_where_clauses:
+            if clause in logical_operators:
+                bool_where_clauses.append(logical_operators[clause])
+            else:
+                bool_clause = [ comparison_operators.get(token, token) for token in clause ]
+                bool_where_clauses.append(bool_clause)
 
     return bool_where_clauses

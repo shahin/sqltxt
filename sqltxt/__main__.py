@@ -14,7 +14,7 @@ Options:
 import logging
 from docopt import docopt
 
-from sql_tokenizer import SqlTokenizer
+from sql_tokenizer import select_stmt
 from query import Query
 
 if __name__ == '__main__':
@@ -26,8 +26,7 @@ if __name__ == '__main__':
   if debug:
     logging.basicConfig(level=logging.DEBUG)
 
-  t = SqlTokenizer()
-  tokens = t.parse(sql_str)
+  tokens = select_stmt.parseString(sql_str)
 
   q = Query(
         tokens.from_clause, 

@@ -1,185 +1,122 @@
-from sql_tokenizer import SqlTokenizer
 from column import Column
 from table import Table
+from joins import join
+from ordered_set import OrderedSet
+
 import logging
+LOG = logging.getLogger(__name__)
 
 class Query(object):
-  """Create Tables and perform operations on them."""
+    """Create Tables and perform operations on them."""
 
-  LOG = logging.getLogger(__name__)
+    def __init__(self, from_clause, where_clauses, columns = None, is_top_level = True):
+        """Instantiate a new Query from tokenized SQL clauses."""
 
-  def __init__(self, from_clauses, where_clauses, column_names = None, is_top_level = True):
-    """Instantiate a new Query from tokenized SQL clauses."""
+        self.is_top_level = is_top_level
 
-    self.is_top_level = is_top_level
+        self.from_clause = from_clause
+        self.where_clauses = where_clauses
+        self.columns = [Column(c) if not isinstance(c, Column) else c for c in columns]
 
-    self.from_clauses = from_clauses
-    self.where_clauses = where_clauses
-    self.column_names = column_names
-    self.columns = [Column(column_name) for column_name in self.column_names]
+    @staticmethod
+    def _replace_column_wildcards(column_list, replacement_columns):
+        """Given a list of Columns, replace any Column named '*' with all Columns in the replacement 
+        list."""
+        columns_resolved_wildcards = []
+        for col in column_list:
+            if col.name == '*':
+                columns_resolved_wildcards.extend(replacement_columns)
+            else:
+                columns_resolved_wildcards.append(col)
 
-    self.missing_select_columns = None
+        return columns_resolved_wildcards
 
-    self.left_table = None
-    self.right_table = None
+    @staticmethod
+    def split_from_clause(from_clause):
+        """Given a list of join clauses, return a new from-clause with a leftmost relation and
+        the rest of the join clauses as a new join clause."""
 
-  @staticmethod
-  def _replace_column_wildcards(column_list, replacement_columns):
-    """Given a list of Columns, replace any Column named '*' with all Columns in the replacement 
-    list."""
-    columns_resolved_wildcards = []
-    for col in column_list:
-      if col.name == '*':
-        columns_resolved_wildcards.extend(replacement_columns)
-      else:
-        columns_resolved_wildcards.append(col)
+        joins = from_clause['joins'][0]
 
-    return columns_resolved_wildcards
+        left_from_clause = { 'left_relation': from_clause['left_relation'] }
+        right_from_clause = {
+            'left_relation': {
+                'path': joins[0]['right_relation']['path'],
+                'alias': joins[0]['right_relation']['alias']
+            },
+        }
 
-  def generate_table(self):
-    """Return a Table representing the result of this Query.
+        remaining_joins = joins[1:]
+        if remaining_joins:
+            right_from_clause['joins'] = [remaining_joins]
+        
+        join_type = joins[0]['join_type'] or 'inner'
+        join_conditions = joins[0]['join_conditions']
+        
+        return left_from_clause, right_from_clause, join_type, join_conditions
 
-    For Querys with no joins, this method uses Table methods to perform the standard subsetting
-    and ordering operations.
+    def generate_table(self):
+        """Return a Table representing the result of this Query.
 
-    For Querys with joins across n Tables, this method 
-      1. instantiates a new sub-Query representing the query across the right-most n-1 Tables,
-      2. calls generate_table on the sub-Query, and
-      3. returns the result of the 2-way join between the left-most Table of this query and the 
-      result of the sub-Query (which is also a Table).
-    """
+        For Queries with no joins, this method uses Table methods to perform the standard subsetting
+        and ordering operations.
 
-    # instantiate the left-most Table in all the where clauses
-    first_from_clause_tokens = self.from_clauses[0]
-    if len(first_from_clause_tokens) > 1:
-      # first from clause is a join clause
-      self.left_table = Table.from_filename(first_from_clause_tokens[1].upper())
-    else:
-      # first from clause is not a join clause
-      self.left_table = Table.from_filename(first_from_clause_tokens[0].upper())
+        For Queries with joins across n Tables, this method 
+          1. instantiates a new Query representing the subquery across the right-most n-1 Tables,
+          2. calls generate_table on the sub-Query, and
+          3. returns the result of the 2-way join between the left-most Table of this query and the 
+          result of the sub-Query (which is also a Table).
+        """
 
-    if len(self.from_clauses) > 1:
-      # instantiate the right Table as the result of a Query on all tables other than
-      # the left-most
+        if 'joins' in self.from_clause:
 
-      right_subquery = Query(self.from_clauses[1:], [], self.column_names, is_top_level = False)
-      self.right_table = right_subquery.generate_table()
+            left_from_clause, right_from_clause, join_type, join_conditions = \
+                self.split_from_clause(self.from_clause)
 
-      # this is cryptic. self.join? right_subquery.from_clauses? a more functional approach
-      # would be easier to test
-      result_table = self.join(right_subquery.from_clauses[0][3:])
+            subquery_columns = self.get_subquery_columns(join_conditions)
 
-      self.missing_select_columns = []
-      if right_subquery.missing_select_columns:
-        # we are still missing any missing columns we don't find in the left table
-        self.missing_select_columns = [
-          col for col in right_subquery.missing_select_columns
-          if not col.match(self.left_table.columns)
-          ]
+            right_subquery = Query(right_from_clause, [], subquery_columns, is_top_level=False)
+            left_subquery = Query(left_from_clause, [], subquery_columns, is_top_level=False)
+            self.right_table = right_subquery.generate_table()
+            self.left_table = left_subquery.generate_table()
 
-    else:
+            self.result_table = join(self.left_table, self.right_table, join_type, join_conditions)
 
-      self.missing_select_columns = [col for col in self.columns
-        if not col.match(self.left_table.columns)]
+        else:
+            table_path = self.from_clause['left_relation']['path']
+            table_alias = self.from_clause['left_relation']['alias'][0] or table_path
+            self.result_table = Table.from_file_path(table_path, alias=table_alias)
 
-      result_table = self.left_table
+        where_conditions = _normalize_sql_boolean_operators(self.where_clauses)
+        self.result_table.subset_rows(where_conditions)
+        
+        # order result columns to match the select list via a Table method
+        self.order_output_columns()
+        return self.result_table
 
-    self.columns = self._replace_column_wildcards(self.columns, result_table.columns)
+    def get_subquery_columns(self, join_conditions):
+        subquery_columns = OrderedSet(self.columns)
+        for jc in join_conditions:
+            for col_name in (jc['left_operand'], jc['right_operand']):
+                subquery_columns.add(Column(col_name))
+        return subquery_columns
 
-    where_conditions = self._normalize_sql_boolean_operators(self.where_clauses)
-    result_table.subset_columns(where_conditions)
-    
-    # order result columns to match the select list via a Table method
-    result_table.order_columns(
-        [col for col in self.columns if col not in self.missing_select_columns], 
-        drop_other_columns = self.is_top_level)
+    def order_output_columns(self):
 
-    return result_table
+        if self.columns == self.result_table.columns:
+            return None
 
-  def join(self, join_conditions):
-    """Return a Table representing the join of the left and right Tables of this Query."""
+        output_columns = []
+        for query_col in self.columns:
+            for result_col in self.result_table.columns:
+                if query_col == result_col:
+                    output_columns.append(result_col)
 
-    self.LOG.debug('Performing join on ({0})'.format(
-      ', '.join([' '.join(c) for c in join_conditions])))
-
-    # find the indices of the columns used in the join conditions
-    left_indices, right_indices = self._get_join_indices(join_conditions)
-
-    # re-sort tables if necessary
-    if not self.left_table.is_sorted_by(left_indices):
-      self.LOG.debug('Table {0} not sorted prior to join'.format(self.left_table))
-      self.left_table.sort([self.left_table.columns[i] for i in left_indices])
-
-    if not self.right_table.is_sorted_by(right_indices):
-      self.LOG.debug('Table {0} not sorted prior to join'.format(self.right_table))
-      self.right_table.sort([self.right_table.columns[i] for i in right_indices])
-
-    # constract the command that will join the data
-    left_indices_arg = ','.join([str(li + 1) for li in left_indices])
-    right_indices_arg = ','.join([str(ri + 1) for ri in right_indices])
-
-    join_cmd = "join -t, -1 {0} -2 {1} <({2}) <({3})".format(
-      left_indices_arg, right_indices_arg, 
-      self.left_table.get_cmd_str(), self.right_table.get_cmd_str())
-
-    join_columns = self._join_columns(left_indices, right_indices)
-
-    # create a new Table representing the (non-materialized) result of the join command
-    join_result_table = Table.from_cmd(
-      name = 'join_result',
-      cmd = join_cmd,
-      columns = join_columns
-      )
-
-    return join_result_table
-
-  def _get_join_indices(self, join_conditions):
-    """Given the join conditions, return the indices of the columns used in the join."""
-
-    # only equality joins supported here
-    # only 'and' joins supported here
-    left_indices = []
-    right_indices = []
-    for condition in join_conditions:
-      self.LOG.debug('Join condition {0}'.format(condition))
-
-      join_vars = (condition[0], condition[2])
-
-      for join_var in join_vars:
-
-        join_col = Column(join_var)
-        if join_col.table_name == self.left_table.name:
-          left_indices.append(self.left_table.column_idxs[join_col][0])
-        elif join_col.table_name == self.right_table.name:
-          self.LOG.debug('Right column idxs: {0}'.format(self.right_table.column_idxs))
-          right_indices.append(self.right_table.column_idxs[join_col][0])
-
-    return left_indices, right_indices
-
-  def _join_columns(self, left_indices, right_indices):
-    """Given the indices of join columns, return the ordered column names in the joined result."""
-
-    n_columns_left = len(self.left_table.columns)
-    n_columns_right = len(self.right_table.columns)
-
-    join_columns = [Column(str(self.left_table.columns[i])) for i in left_indices]
-    for idx, col in enumerate(join_columns):
-      join_columns[idx].ancestors = \
-        [self.right_table.columns[right_indices[idx]]] + \
-        [self.left_table.columns[left_indices[idx]]]
-
-    nonjoin_columns = [self.left_table.columns[i] for i in range(n_columns_left) 
-      if i not in left_indices]
-    nonjoin_columns += [self.right_table.columns[i] for i in range(n_columns_right)
-      if i not in right_indices]
-
-    join_result_columns = join_columns + nonjoin_columns
-    self.LOG.debug('Resolved join result column names as [{0}]'.format(
-      ', '.join([repr(c) for c in join_result_columns])))
-
-    return join_result_columns
+        self.result_table.order_columns(
+            output_columns,
+            drop_other_columns = self.is_top_level)
   
-  def _normalize_sql_boolean_operators(self, sql_where_clauses):
+def _normalize_sql_boolean_operators(sql_where_clauses):
     """Given tokenized SQL where clauses, return their translations to normal boolean operators."""
 
     sql_to_bool_operators = {

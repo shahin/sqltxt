@@ -5,6 +5,7 @@
 # definition at http://www.sqlite.org/lang_select.html
 #
 from pyparsing import *
+ParserElement.enablePackrat()
 
 LPAR,RPAR,COMMA = map(Suppress,"(),")
 select_stmt = Forward().setName("select statement")
@@ -27,7 +28,6 @@ keyword = MatchFirst((UNION, ALL, INTERSECT, EXCEPT, COLLATE, ASC, DESC, ON, USI
  CURRENT_TIMESTAMP))
  
 identifier = ~keyword + Word(alphas, alphanums+"_")
-collation_name = identifier.copy()
 column_name = identifier.copy()
 column_alias = identifier.copy()
 table_name = identifier.copy()
@@ -54,7 +54,6 @@ type_name = oneOf("TEXT REAL INTEGER BLOB NULL")
 
 expr_term = (
     CAST + LPAR + expr + AS + type_name + RPAR |
-    EXISTS + LPAR + select_stmt + RPAR |
     function_name + LPAR + Optional(delimitedList(expr)) + RPAR |
     literal_value |
     bind_parameter |
@@ -64,53 +63,29 @@ expr_term = (
 UNARY,BINARY,TERNARY=1,2,3
 expr << operatorPrecedence(expr_term,
     [
-    (oneOf('- + ~') | NOT, UNARY, opAssoc.LEFT),
     ('||', BINARY, opAssoc.LEFT),
     (oneOf('* / %'), BINARY, opAssoc.LEFT),
     (oneOf('+ -'), BINARY, opAssoc.LEFT),
-    (oneOf('<< >> & |'), BINARY, opAssoc.LEFT),
     (oneOf('< <= > >='), BINARY, opAssoc.LEFT),
     (oneOf('= == != <>') | IS | IN | LIKE | GLOB | MATCH | REGEXP, BINARY, opAssoc.LEFT),
-    ('||', BINARY, opAssoc.LEFT),
-    ((BETWEEN,AND), TERNARY, opAssoc.LEFT),
     ])
-
 compound_operator = (UNION + Optional(ALL) | INTERSECT | EXCEPT)
 
-ordering_term = expr + Optional(COLLATE + collation_name) + Optional(ASC | DESC)
+ordering_term = expr + Optional(ASC | DESC)
 
 join_constraint = Optional(ON + expr | USING + LPAR + Group(delimitedList(column_name)) + RPAR)
 
 join_op = COMMA | (Optional(NATURAL) + Optional(INNER | CROSS | LEFT + OUTER | LEFT | OUTER) + JOIN)
 
-join_source = Forward()
-single_source = ( (Group(database_name("database") + "." + table_name("table")) | table_name("table")) + 
-                    Optional(Optional(AS) + table_alias("table_alias")) +
-                    Optional(INDEXED + BY + index_name("name") | NOT + INDEXED)("index") | 
-                  (LPAR + select_stmt + RPAR + Optional(Optional(AS) + table_alias)) | 
-                  (LPAR + join_source + RPAR) )
+single_source = Group(database_name("database") + "." + table_name("table") | table_name("table") + 
+                    Optional(Optional(AS) + table_alias("table_alias")))
 
-join_source << single_source + ZeroOrMore(join_op + single_source + join_constraint)
+join_source = Group(single_source + ZeroOrMore(join_op.setResultsName('join_op') + single_source + join_constraint)).setResultsName('joins')
 
 result_column = "*" | table_name + "." + "*" | (expr + Optional(Optional(AS) + column_alias))
-select_core = (SELECT + Optional(DISTINCT | ALL) + Group(delimitedList(result_column))("columns") +
+select_stmt = (SELECT + Optional(DISTINCT | ALL) + Group(delimitedList(result_column))("columns") +
                 Optional(FROM + join_source) +
                 Optional(WHERE + expr("where_expr")) +
                 Optional(GROUP + BY + Group(delimitedList(ordering_term)("group_by_terms")) + 
                         Optional(HAVING + expr("having_expr"))))
 
-select_stmt << (select_core + ZeroOrMore(compound_operator + select_core) +
-                Optional(ORDER + BY + Group(delimitedList(ordering_term))("order_by_terms")) +
-                Optional(LIMIT + (integer + OFFSET + integer | integer + COMMA + integer)))
-
-tests = """\
-    select * from xyzzy where z > 100
-    select * from xyzzy where z > 100 order by zz
-    select * from xyzzy""".splitlines()
-for t in tests:
-    print t
-    try:
-        print select_stmt.parseString(t).dump()
-    except ParseException, pe:
-        print pe.msg
-    print

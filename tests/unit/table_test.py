@@ -34,13 +34,13 @@ class TableTest(unittest.TestCase):
 
     def test_subset_rows(self):
     
-        conditions = [['col_b', '==', '1'], 'or', ['col_a', '==', '2']]
+        conditions = [['col_b', '==', '1'], ' || ', ['col_a', '==', '2']]
         self.table_a.subset_rows(conditions)
        
         cmds_actual = self.table_a.cmds
         cmds_expected = [
             'echo -e "1,1\n2,3\n3,2"',
-            "awk -F',' 'OFS=\",\" { if ($2 == 1 || $1 == 2) { print $1,$2 } }'"]
+            "awk -F',' 'OFS=\",\" { if ($2==1 || $1==2) { print $1,$2 } }'"]
         self.assertEqual(cmds_actual, cmds_expected)
 
     def test_order_columns(self):

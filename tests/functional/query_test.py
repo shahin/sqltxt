@@ -65,9 +65,9 @@ class QueryTest(unittest.TestCase):
 
     # TODO: decide whether to call generate_table from constructor
     q = Query(
-      from_clauses = [['table_a'],[['inner','join'],'table_b','on',['table_a.col_a', '=', 'table_b.col_a']]], 
+      from_clause = [['table_a'],[['inner','join'],'table_b','on',['table_a.col_a', '=', 'table_b.col_a']]], 
       where_clauses = [], 
-      column_names = ['col_a', 'col_b', 'col_z'])
+      columns = ['col_a', 'col_b', 'col_z'])
     t = q.generate_table()
     header_actual = t.columns
     header_expected = ['col_a', 'col_b', 'col_z']
@@ -77,9 +77,9 @@ class QueryTest(unittest.TestCase):
   def test_join_columns_retains_column_ancestry(self):
 
     q = Query(
-      from_clauses = [['table_a'],[['inner','join'],'table_b','on',['table_a.col_a', '=', 'table_b.col_a']]], 
+      from_clause = [['table_a'],[['inner','join'],'table_b','on',['table_a.col_a', '=', 'table_b.col_a']]], 
       where_clauses = [], 
-      column_names = ['col_a', 'col_b', 'col_z'])
+      columns = ['col_a', 'col_b', 'col_z'])
     t = q.generate_table()
     header_actual = t.columns
 
@@ -89,9 +89,9 @@ class QueryTest(unittest.TestCase):
   def test_join_two_tables(self):
     
     q = Query(
-      from_clauses = [['table_a'],[['inner','join'],'table_b','on',['table_a.col_a', '=', 'table_b.col_a']]], 
+      from_clause = [['table_a'],[['inner','join'],'table_b','on',['table_a.col_a', '=', 'table_b.col_a']]], 
       where_clauses = [], 
-      column_names = ['col_a', 'col_b', 'col_z'])
+      columns = ['col_a', 'col_b', 'col_z'])
 
     table_actual = q.generate_table()
     table_expected = Table.from_cmd(
@@ -108,9 +108,9 @@ class QueryTest(unittest.TestCase):
   def test_join_two_tables_with_sort(self):
     
     q = Query(
-      from_clauses = [['table_a'],[['inner','join'],'table_b','on',['table_a.col_b', '=', 'table_b.col_a']]], 
+      from_clause = [['table_a'],[['inner','join'],'table_b','on',['table_a.col_b', '=', 'table_b.col_a']]], 
       where_clauses = [], 
-      column_names = ['col_b', 'col_a', 'col_z'])
+      columns = ['col_b', 'col_a', 'col_z'])
     table_actual = q.generate_table()
     cmd_actual = table_actual.get_cmd_str(output_column_names=True)
     cmd_expected = \
@@ -126,9 +126,9 @@ class QueryTest(unittest.TestCase):
   def test_wildcard_selects_all_columns(self):
     
     q = Query(
-      from_clauses = [['table_a']], 
+      from_clause = [['table_a']], 
       where_clauses = [], 
-      column_names = ['*'])
+      columns = ['*'])
     table_actual = q.generate_table()
     cmd_actual = table_actual.get_cmd_str(output_column_names=True)
     cmd_expected = 'echo "col_a,col_b"; tail +2 TABLE_A.txt'
@@ -142,9 +142,9 @@ class QueryTest(unittest.TestCase):
   def test_wildcard_on_join_selects_all_columns(self):
     
     q = Query(
-      from_clauses = [['table_a'],[['inner','join'],'table_b','on',['table_a.col_b', '=', 'table_b.col_a']]], 
+      from_clause = [['table_a'],[['inner','join'],'table_b','on',['table_a.col_b', '=', 'table_b.col_a']]], 
       where_clauses = [], 
-      column_names = ['*'])
+      columns = ['*'])
     table_actual = q.generate_table()
     cmd_actual = table_actual.get_cmd_str(output_column_names=True)
     cmd_expected = \

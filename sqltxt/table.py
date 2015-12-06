@@ -159,13 +159,14 @@ class Table(object):
         # translate a list of boolean conditions to awk syntax
         condition_str = ''
         for expr_part in conditions:
-            # treat any PostgreSQL-valid identifier as a column
-            expr_part = [
-                ('$' + str( self._column_idx(Column(token)) ) 
-                    if re.match(self.VALID_IDENTIFIER_REGEX, token) 
-                    else token
-                )
-                for token in expr_part]
+            if not isinstance(expr_part, basestring):
+                # treat any PostgreSQL-valid identifier as a column
+                expr_part = [
+                    ('$' + str( self._column_idx(Column(token)) ) 
+                        if re.match(self.VALID_IDENTIFIER_REGEX, token) 
+                        else token
+                    )
+                    for token in expr_part]
             condition_str += ''.join(expr_part)
 
         if condition_str == '':

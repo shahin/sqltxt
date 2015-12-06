@@ -1,6 +1,6 @@
 from column import Column
 from table import Table
-from joins import join
+from joins import join_tables
 from ordered_set import OrderedSet
 
 import logging
@@ -80,7 +80,7 @@ class Query(object):
             self.right_table = right_subquery.generate_table()
             self.left_table = left_subquery.generate_table()
 
-            self.result_table = join(self.left_table, self.right_table, join_type, join_conditions)
+            self.result_table = join_tables(self.left_table, self.right_table, join_type, join_conditions)
 
         else:
             table_path = self.from_clause['left_relation']['path']

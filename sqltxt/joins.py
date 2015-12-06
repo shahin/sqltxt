@@ -4,7 +4,7 @@ from table import Table
 import logging
 LOG = logging.getLogger(__name__)
 
-def join(left_table, right_table, join_type, join_conditions):
+def join_tables(left_table, right_table, join_type, join_conditions):
     """Return a Table representing the join of the left and right Tables of this Query."""
 
     LOG.debug('Performing join on ({0})'.format(

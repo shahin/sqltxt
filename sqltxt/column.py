@@ -10,7 +10,7 @@ class Column(object):
         self.name = name_parts[-1]
         self.qualifiers = OrderedSet(qualifiers or [])
         if len(name_parts) > 1:
-            self.qualifiers.add(name_parts[0].lower())
+            self.qualifiers.add('.'.join(name_parts[:-1]).lower())
 
     @property
     def name(self):
@@ -61,3 +61,4 @@ def qualifiers_to_str(qualifiers):
         return qualifiers[0]
     else:
         return '(' + '|'.join(sorted(qualifiers)) + ')'
+

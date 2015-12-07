@@ -42,7 +42,7 @@ class Query(object):
         right_from_clause = {
             'left_relation': {
                 'path': joins[0]['right_relation']['path'],
-                'alias': joins[0]['right_relation']['alias']
+                'alias': joins[0]['right_relation'].get('alias', joins[0]['right_relation']['path'])
             },
         }
 
@@ -73,19 +73,23 @@ class Query(object):
             left_from_clause, right_from_clause, join_type, join_conditions = \
                 self.split_from_clause(self.from_clause)
 
-            subquery_columns = self.get_subquery_columns(join_conditions)
+            # make sure join cols are in subquery, even if they're not in the select
+            subquery_columns = self.get_subquery_columns(join_conditions) 
 
-            right_subquery = Query(right_from_clause, [], subquery_columns, is_top_level=False)
-            left_subquery = Query(left_from_clause, [], subquery_columns, is_top_level=False)
-            self.right_table = right_subquery.generate_table()
-            self.left_table = left_subquery.generate_table()
+            self.right_subquery = Query(right_from_clause, [], subquery_columns, is_top_level=False)
+            self.left_subquery = Query(left_from_clause, [], subquery_columns, is_top_level=False)
+            self.right_table = self.right_subquery.generate_table()
+            self.left_table = self.left_subquery.generate_table()
 
             self.result_table = join_tables(self.left_table, self.right_table, join_type, join_conditions)
 
         else:
             table_path = self.from_clause['left_relation']['path']
-            table_alias = self.from_clause['left_relation']['alias'][0] or table_path
+            table_alias = self.from_clause['left_relation'].get('alias', [False])[0] or table_path
             self.result_table = Table.from_file_path(table_path, alias=table_alias)
+
+        # make sure each subquery column appears at most once across the right and left tables 
+        self.validate_subquery_columns()
 
         where_conditions = _normalize_sql_boolean_operators(self.where_clauses)
         self.result_table.subset_rows(where_conditions)
@@ -95,6 +99,7 @@ class Query(object):
         return self.result_table
 
     def get_subquery_columns(self, join_conditions):
+        """Return the union of this query's columns and the columns used in the join."""
         subquery_columns = OrderedSet(self.columns)
         for jc in join_conditions:
             for col_name in (jc['left_operand'], jc['right_operand']):
@@ -138,7 +143,7 @@ def _normalize_sql_boolean_operators(sql_where_clauses):
     # translate SQL-specific boolean operators to the tokens that normal languages use
     if len(sql_where_clauses) > 0:
         for clause in sql_where_clauses:
-            if clause in logical_operators:
+            if clause in logical_operators.keys():
                 bool_where_clauses.append(logical_operators[clause])
             else:
                 bool_clause = [ comparison_operators.get(token, token) for token in clause ]

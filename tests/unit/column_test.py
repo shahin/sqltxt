@@ -22,27 +22,33 @@ class ColumnTest(unittest.TestCase):
         self.assertEqual(Column('Col_A'), Column('col_a'))
         self.assertEqual(Column('Table_A.col_a'), Column('table_a.COL_A'))
 
-    def test_qualified_and_unqualified_columns_with_the_same_name_are_equal(self):
+    def test_unqualified_columns_are_greater_than_qualified_columns_with_the_same_name(self):
         col_a_unqualified = Column('col_a')
         col_a_qualified = Column('table_a.col_a')
-        self.assertEqual(col_a_unqualified, col_a_qualified)
+        self.assertGreater(col_a_unqualified, col_a_qualified)
+        self.assertLess(col_a_qualified, col_a_unqualified)
+        self.assertNotEqual(col_a_qualified, col_a_unqualified)
 
         col_a_unqualified = Column('col_a')
         col_a_qualified = Column('table_a.col_a', qualifiers=['ta'])
-        self.assertEqual(col_a_unqualified, col_a_qualified)
+        self.assertGreater(col_a_unqualified, col_a_qualified)
+        self.assertLess(col_a_qualified, col_a_unqualified)
+        self.assertNotEqual(col_a_qualified, col_a_unqualified)
 
         col_a_unqualified = Column('col_a')
         col_a_qualified = Column('col_a', qualifiers=['table_a', 'ta'])
-        self.assertEqual(col_a_unqualified, col_a_qualified)
+        self.assertGreater(col_a_unqualified, col_a_qualified)
+        self.assertLess(col_a_qualified, col_a_unqualified)
+        self.assertNotEqual(col_a_qualified, col_a_unqualified)
 
     def test_qualified_columns_with_intersecting_qualifiers_are_equal(self):
-        col_a_unqualified = Column('col_a', qualifiers=['ta'])
-        col_a_qualified = Column('col_a', qualifiers=['table_a', 'ta'])
-        self.assertEqual(col_a_unqualified, col_a_qualified)
+        col_a_1 = Column('col_a', qualifiers=['ta'])
+        col_a_2 = Column('col_a', qualifiers=['table_a', 'ta'])
+        self.assertEqual(col_a_1, col_a_2)
 
-        col_a_unqualified = Column('col_a', qualifiers=['ta', 'tb'])
-        col_a_qualified = Column('col_a', qualifiers=['table_a', 'ta'])
-        self.assertEqual(col_a_unqualified, col_a_qualified)
+        col_a_1 = Column('col_a', qualifiers=['ta', 'tb'])
+        col_a_2 = Column('col_a', qualifiers=['table_a', 'ta'])
+        self.assertEqual(col_a_1, col_a_2)
 
     def test_qualified_columns_without_intersecting_qualifiers_are_not_equal(self):
         col_a_unqualified = Column('col_a', qualifiers=['table_b', 'tb'])

@@ -1,4 +1,4 @@
-from column import Column
+from column import Column, get_equivalent_columns
 import logging
 import re
 
@@ -103,12 +103,13 @@ class Table(object):
             self.LOG.debug('Columns already in order {0}'.format(self.columns))
             return
 
+        import ipdb; ipdb.set_trace()
         self.LOG.debug('Current column order of {0} is {1}'.format(self.name, self.columns))
         self.LOG.debug('Reordering {0} columns to {1}'.format(self.name, columns_in_order))
         
-        reordered_col_idxs = [self.column_idxs[col][0] for col in columns_in_order]
+        reordered_col_idxs = [self.get_column_idx(col) for col in columns_in_order]
         unchanged_col_idxs = [
-            self.column_idxs[col][0] for col in self.columns
+            self.get_column_idx(col) for col in self.columns
             if col not in columns_in_order]
 
         col_idxs = reordered_col_idxs
@@ -119,7 +120,7 @@ class Table(object):
             self.delimiter, ','.join('$' + str(idx + 1) for idx in col_idxs))
 
         self.columns = [self.columns[idx] for idx in col_idxs]
-        self.column_idxs = self._compute_column_indices()
+        self._column_idxs = self._compute_column_indices()
         self.cmds.append(reorder_cmd)
 
     def is_sorted_by(self, sort_order_indices):
@@ -144,7 +145,7 @@ class Table(object):
             return None
         self.LOG.debug('Sorting {0} by {1}'.format(self.name, columns_to_sort_by))
 
-        column_idxs_to_sort_by = [self.column_idxs[col][0] for col in columns_to_sort_by]
+        column_idxs_to_sort_by = [self.get_column_idx(col) for col in columns_to_sort_by]
 
         sort_key_params = ' -k '.join(
               ','.join([str(idx + 1),str(idx + 1)]) for idx in column_idxs_to_sort_by)
@@ -162,7 +163,7 @@ class Table(object):
             if not isinstance(expr_part, basestring):
                 # treat any PostgreSQL-valid identifier as a column
                 expr_part = [
-                    ('$' + str( self._column_idx(Column(token)) ) 
+                    ('$' + str( self.get_column_idx(Column(token)) + 1) 
                         if re.match(self.VALID_IDENTIFIER_REGEX, token) 
                         else token
                     )
@@ -174,7 +175,7 @@ class Table(object):
                 self.name))
             return
 
-        columns = ','.join(['$' + str(self.column_idxs[c][0] + 1) for c in self.columns])
+        columns = ','.join(['$' + str(self.get_column_idx(c) + 1) for c in self.columns])
         awk_cmd = "awk -F'{0}' 'OFS=\"{0}\" {{ if ({1}) {{ print {2} }} }}'".format(
             self.delimiter, condition_str, columns)
         self.cmds.append(awk_cmd)
@@ -209,5 +210,17 @@ class Table(object):
         self.LOG.debug('{0} computed column indices {1}'.format(self,idxs))
         return idxs
   
-    def _column_idx(self, column):
-        return self.column_idxs[column][0] + 1
+    def get_column_idx(self, column):
+        """Return the index of the first occurence of the given column on this Table."""
+        indices = []
+        for table_column in self.columns:
+            if column >= table_column:
+                indices.append(self.column_idxs[table_column][0])
+        
+        # a column reference should never match more than one column on a table
+        if len(indices) > 1:
+            matched_columns = [self.columns[i] for i in indices]
+            raise IndexError('Ambiguous column reference {0} which matches {1}'.format(
+                column, matched_columns))
+        
+        return indices[0]

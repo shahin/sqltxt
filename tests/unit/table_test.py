@@ -76,6 +76,24 @@ class TableTest(unittest.TestCase):
         self.assertFalse(table_from_cmd.is_sorted_by([1]))
         self.assertTrue(table_from_cmd.is_sorted_by([0,1]))
 
+    def test_get_column_idx_raises_on_ambiguity(self):
+
+        table_from_cmd = Table.from_cmd(
+            name = 'table_a', 
+            cmd = 'echo -e ""',
+            columns = ['col_a', 'col_a'])
+
+        with self.assertRaisesRegexp(IndexError, 'Ambiguous column reference'):
+            table_from_cmd.get_column_idx(Column('col_a'))
+
+        table_from_cmd = Table.from_cmd(
+            name = 'table_a', 
+            cmd = 'echo -e ""',
+            columns = ['ta.col_a', 'tb.col_a'])
+
+        with self.assertRaisesRegexp(IndexError, 'Ambiguous column reference'):
+            table_from_cmd.get_column_idx(Column('col_a'))
+
     def test_get_cmd_str(self):
 
         table_from_file = Table.from_file_path(os.path.join(self.data_path, 'table_a.txt'))

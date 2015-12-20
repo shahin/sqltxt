@@ -26,9 +26,9 @@ from pyparsing import (
 
 # keywords
 (UNION, ALL, AND, INTERSECT, EXCEPT, COLLATE, ASC, DESC, ON, USING, NATURAL, INNER, 
- CROSS, LEFT, OUTER, JOIN, AS, INDEXED, NOT, SELECT, DISTINCT, FROM, WHERE, GROUP, BY,
+ CROSS, RIGHT, LEFT, OUTER, JOIN, AS, INDEXED, NOT, SELECT, DISTINCT, FROM, WHERE, GROUP, BY,
  HAVING, ORDER, BY, LIMIT, OFFSET) =  map(CaselessKeyword, """UNION, ALL, AND, INTERSECT, 
- EXCEPT, COLLATE, ASC, DESC, ON, USING, NATURAL, INNER, CROSS, LEFT, OUTER, JOIN, AS, INDEXED, NOT, SELECT, 
+ EXCEPT, COLLATE, ASC, DESC, ON, USING, NATURAL, INNER, CROSS, RIGHT, LEFT, OUTER, JOIN, AS, INDEXED, NOT, SELECT, 
  DISTINCT, FROM, WHERE, GROUP, BY, HAVING, ORDER, BY, LIMIT, OFFSET""".replace(",","").split())
 (CAST, ISNULL, NOTNULL, NULL, IS, BETWEEN, ELSE, END, CASE, WHEN, THEN, EXISTS,
  COLLATE, IN, LIKE, GLOB, REGEXP, MATCH, ESCAPE, CURRENT_TIME, CURRENT_DATE, 
@@ -36,7 +36,7 @@ from pyparsing import (
  END, CASE, WHEN, THEN, EXISTS, COLLATE, IN, LIKE, GLOB, REGEXP, MATCH, ESCAPE, 
  CURRENT_TIME, CURRENT_DATE, CURRENT_TIMESTAMP""".replace(",","").split())
 keyword = MatchFirst((UNION, ALL, INTERSECT, EXCEPT, COLLATE, ASC, DESC, ON, USING, NATURAL, INNER, 
- CROSS, LEFT, OUTER, JOIN, AS, INDEXED, NOT, SELECT, DISTINCT, FROM, WHERE, GROUP, BY,
+ CROSS, RIGHT, LEFT, OUTER, JOIN, AS, INDEXED, NOT, SELECT, DISTINCT, FROM, WHERE, GROUP, BY,
  HAVING, ORDER, BY, LIMIT, OFFSET, CAST, ISNULL, NOTNULL, NULL, IS, BETWEEN, ELSE, END, CASE, WHEN, THEN, EXISTS,
  COLLATE, IN, LIKE, GLOB, REGEXP, MATCH, ESCAPE, CURRENT_TIME, CURRENT_DATE, 
  CURRENT_TIMESTAMP))
@@ -99,7 +99,7 @@ group_by_expr = Group(column_idr + ZeroOrMore( "," + column_idr ))
 where_expr << where_cond + ZeroOrMore( (and_ | or_) + where_expr )
 
 on_ = Keyword('on', caseless=True)
-join = ((Optional('inner') + 'join') | (oneOf('left right') + 'join' )
+join = ((oneOf('left right') + 'join' ) | (Optional('inner') + 'join')
         ).setResultsName('join_type')
 
 from_clause = table_idr.setResultsName('left_relation') + ZeroOrMore(Group(

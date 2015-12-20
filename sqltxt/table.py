@@ -1,7 +1,9 @@
-from column import Column, get_equivalent_columns
+import itertools
 import logging
 import re
+import copy
 
+from column import Column, ColumnName
 
 def dedupe_with_order(dupes):
     """Given a list, return it without duplicates and order preserved."""
@@ -42,7 +44,38 @@ class Table(object):
         self.sorted_by = []
         self.outfile_name = "{0}.out".format(name)
 
-        self.column_idxs = self._compute_column_indices()
+    @property
+    def column_idxs(self):
+        return self._compute_column_indices()
+
+    @property
+    def column_name_idxs(self):
+        return self._compute_column_name_indices()
+
+    def _compute_column_indices(self):
+        """Return a dictionary of column index lists keyed by ColumnName."""
+
+        idxs = {}
+        for i, c in enumerate(self.columns):
+            try:
+                idxs[c].append(i)
+            except KeyError:
+                idxs[c] = [i]
+        self.LOG.debug('{0} computed column indices {1}'.format(self,idxs))
+        return idxs
+
+    def _compute_column_name_indices(self):
+        """Return a dictionary of column index lists keyed by ColumnName."""
+
+        idxs = {}
+        for i, c in enumerate(self.columns):
+            for column_name in c.names:
+                try:
+                    idxs[column_name].append(i)
+                except KeyError:
+                    idxs[column_name] = [i]
+        self.LOG.debug('{0} computed column name indices {1}'.format(self,idxs))
+        return idxs
 
     @classmethod
     def from_file_path(cls, file_path, columns=None, delimiter=',', alias=None):
@@ -53,19 +86,13 @@ class Table(object):
         :param delimiter: the column delimiter for this table; defaults to ','
         """
 
-        if columns is None:
-            columns = cls._parse_column_names(file_path, delimiter)
-        
-        if alias is None:
-            alias = file_path
+        columns = columns or cls._parse_column_names(file_path, delimiter)
+        alias = alias or file_path
 
         column_qualifiers = [file_path.lower(), alias.lower()]
         for idx, col in enumerate(columns):
             if not isinstance(col, Column):
                 columns[idx] = Column(col, qualifiers=column_qualifiers)
-
-        # disallow duplicate column names on the same file
-        assert len(set([c.name for c in columns])) == len(columns)
 
         return cls(file_path, delimiter, None, columns, 1, alias)
 
@@ -95,22 +122,22 @@ class Table(object):
 
         return head.split(delimiter)
 
-    def order_columns(self, columns_in_order, drop_other_columns=False):
+    def order_columns(self, column_names_in_order, drop_other_columns=False):
         """Rearrange and subset the columns of this Table."""
 
+        columns_in_order = [self.get_column_for_name(n) for n in column_names_in_order]
         if (columns_in_order == self.columns) or (
             columns_in_order == self.columns[0:len(columns_in_order)] and not drop_other_columns):
             self.LOG.debug('Columns already in order {0}'.format(self.columns))
             return
 
-        import ipdb; ipdb.set_trace()
         self.LOG.debug('Current column order of {0} is {1}'.format(self.name, self.columns))
         self.LOG.debug('Reordering {0} columns to {1}'.format(self.name, columns_in_order))
         
-        reordered_col_idxs = [self.get_column_idx(col) for col in columns_in_order]
+        reordered_col_idxs = [self.column_idxs[col][0] for col in columns_in_order]
         unchanged_col_idxs = [
-            self.get_column_idx(col) for col in self.columns
-            if col not in columns_in_order]
+            self.column_idxs[col][0] for col in self.columns
+            if not any([c.match(col) for c in columns_in_order])]
 
         col_idxs = reordered_col_idxs
         if not drop_other_columns:
@@ -119,8 +146,7 @@ class Table(object):
         reorder_cmd = "awk -F'{0}' 'OFS=\"{0}\" {{ print {1} }}'".format(
             self.delimiter, ','.join('$' + str(idx + 1) for idx in col_idxs))
 
-        self.columns = [self.columns[idx] for idx in col_idxs]
-        self._column_idxs = self._compute_column_indices()
+        self.columns = [copy.deepcopy(self.columns[idx]) for idx in col_idxs]
         self.cmds.append(reorder_cmd)
 
     def is_sorted_by(self, sort_order_indices):
@@ -130,22 +156,26 @@ class Table(object):
             return False
 
         for sort_idx, column_idx in enumerate(sort_order_indices):
-            if self.columns[column_idx] != self.sorted_by[sort_idx]:
+            if not (self.sorted_by[sort_idx].match(self.columns[column_idx])):
                 return False
 
         return True
 
-    def sort(self, columns_to_sort_by):
-        """Sort the rows of this Table by the given columns."""
+    def sort(self, sort_by):
+        """Sort the rows of this Table by the given columns or column names."""
 
-        columns_to_sort_by = dedupe_with_order(columns_to_sort_by)
+        deduped_sort_by = dedupe_with_order(sort_by)
+        columns_to_sort_by = [
+            self.get_column_for_name(c) if isinstance(c, ColumnName) else c
+            for c in deduped_sort_by
+        ]
 
         # if this table is already sorted by the requested sort order, do nothing
         if columns_to_sort_by == self.sorted_by[0:len(columns_to_sort_by)]:
             return None
         self.LOG.debug('Sorting {0} by {1}'.format(self.name, columns_to_sort_by))
 
-        column_idxs_to_sort_by = [self.get_column_idx(col) for col in columns_to_sort_by]
+        column_idxs_to_sort_by = [self.column_idxs[col][0] for col in columns_to_sort_by]
 
         sort_key_params = ' -k '.join(
               ','.join([str(idx + 1),str(idx + 1)]) for idx in column_idxs_to_sort_by)
@@ -163,7 +193,7 @@ class Table(object):
             if not isinstance(expr_part, basestring):
                 # treat any PostgreSQL-valid identifier as a column
                 expr_part = [
-                    ('$' + str( self.get_column_idx(Column(token)) + 1) 
+                    ('$' + str(self.column_idxs[self.get_column_for_name(ColumnName(token))][0] + 1) 
                         if re.match(self.VALID_IDENTIFIER_REGEX, token) 
                         else token
                     )
@@ -175,7 +205,7 @@ class Table(object):
                 self.name))
             return
 
-        columns = ','.join(['$' + str(self.get_column_idx(c) + 1) for c in self.columns])
+        columns = ','.join(['$' + str(self.column_idxs[c][0] + 1) for c in self.columns])
         awk_cmd = "awk -F'{0}' 'OFS=\"{0}\" {{ if ({1}) {{ print {2} }} }}'".format(
             self.delimiter, condition_str, columns)
         self.cmds.append(awk_cmd)
@@ -198,29 +228,25 @@ class Table(object):
 
         return cmd_str
 
-    def _compute_column_indices(self):
-        """Return a dictionary of column index lists keyed by Column."""
+    def set_column_aliases(self, column_names):
+        for col, col_name in zip(self.columns, column_names):
+            col.alias = col_name
 
-        idxs = {}
-        for i, c in enumerate(self.columns):
-            try:
-                idxs[c].append(i)
-            except KeyError:
-                idxs[c] = [i]
-        self.LOG.debug('{0} computed column indices {1}'.format(self,idxs))
-        return idxs
+    def get_column_for_name(self, column_name):
+        """Return the unique Column on this table that matches the given ColumnName.
+
+        If more than one Column on this table matches the given ColumnName, raise an IndexError.
+        """
   
-    def get_column_idx(self, column):
-        """Return the index of the first occurence of the given column on this Table."""
-        indices = []
+        matched_columns = []
         for table_column in self.columns:
-            if column >= table_column:
-                indices.append(self.column_idxs[table_column][0])
-        
-        # a column reference should never match more than one column on a table
-        if len(indices) > 1:
-            matched_columns = [self.columns[i] for i in indices]
+            if column_name.match(*table_column.names):
+                matched_columns.append(table_column)
+
+        if len(matched_columns) == 0:
+            return None
+        elif len(matched_columns) > 1:
             raise IndexError('Ambiguous column reference {0} which matches {1}'.format(
-                column, matched_columns))
-        
-        return indices[0]
+                column_name, [c.names for c in matched_columns]))
+        else:
+            return matched_columns[0]

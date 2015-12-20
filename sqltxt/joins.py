@@ -1,4 +1,4 @@
-from column import Column
+from column import Column, ColumnName, merge_columns
 from table import Table
 
 import logging
@@ -42,8 +42,6 @@ def join_tables(left_table, right_table, join_type, join_conditions):
         columns = join_columns
     )
 
-    _name_composite_columns(join_result_table, parsed_join_conditions)
-
     return join_result_table
 
 def parse_join_conditions(join_conditions):
@@ -63,8 +61,8 @@ def parse_join_conditions(join_conditions):
     for cond in join_conditions:
         parsed_conditions.append({
             'operator': cond['operator'],
-            'left_operand': Column(cond['left_operand']),
-            'right_operand': Column(cond['right_operand'])
+            'left_operand': ColumnName(cond['left_operand']),
+            'right_operand': ColumnName(cond['right_operand'])
         })
 
     return parsed_conditions
@@ -75,38 +73,31 @@ def _get_join_indices(left_table, right_table, join_conditions):
     left_indices = []
     right_indices = []
     for cond in join_conditions:
-        for join_col in (cond['left_operand'], cond['right_operand']):
+        for join_col_name in (cond['left_operand'], cond['right_operand']):
 
-            assert not (join_col in left_table.columns and join_col in right_table.columns)
+            left_col = left_table.get_column_for_name(join_col_name)
+            right_col = right_table.get_column_for_name(join_col_name)
 
-            if join_col in left_table.columns:
-                left_indices.append(left_table.column_idxs[join_col][0])
-            elif join_col in right_table.columns:
-                right_indices.append(right_table.column_idxs[join_col][0])
+            assert not (left_col and right_col)
+
+            if left_col:
+                left_indices.append(left_table.column_idxs[left_col][0])
+            elif right_col:
+                right_indices.append(right_table.column_idxs[right_col][0])
             else:
-                raise ValueError('Column {0} not found on tables {1} or {2}'.format(
-                    join_var,
+                raise ValueError('Column name {0} not found on tables {1} or {2}'.format(
+                    join_col_name,
                     left_table,
                     right_table
                     ))
 
-    return left_indices, right_indices
+    return zip(left_indices, right_indices)
 
-def _join_columns(left_table, right_table, indices):
+def _join_columns(left_table, right_table, join_indices):
     """Given the indices of join columns, return the ordered column names in the joined result."""
 
-    n_columns_left = len(left_table.columns)
-    n_columns_right = len(right_table.columns)
-
-    join_columns = []
-    for li, ri in indices:
-        join_columns.append(li)
-        join_columns[-1].names += ri.names
-
-    nonjoin_columns = [left_table.columns[i] for i in range(n_columns_left) 
-        if i not in left_indices]
-    nonjoin_columns += [right_table.columns[i] for i in range(n_columns_right)
-        if i not in right_indices]
+    join_columns = _resolve_join_columns(left_table, right_table, join_indices)
+    nonjoin_columns = _resolve_nonjoin_columns(left_table, right_table, join_indices)
 
     join_result_columns = join_columns + nonjoin_columns
     LOG.debug('Resolved join result column names as [{0}]'.format(
@@ -114,4 +105,19 @@ def _join_columns(left_table, right_table, indices):
 
     return join_result_columns
 
-def _name_composite_columnds(table, join_conditions):
+def _resolve_nonjoin_columns(left_table, right_table, indices):
+    left_indices, right_indices = zip(*indices)
+    nonjoin_columns = [left_table.columns[i] for i in range(len(left_table.columns)) 
+        if i not in left_indices]
+    nonjoin_columns += [right_table.columns[i] for i in range(len(right_table.columns))
+        if i not in right_indices]
+    return nonjoin_columns
+
+def _resolve_join_columns(left_table, right_table, indices):
+    """Return the post-join list of join columns in the result table.
+
+    In SQL, we can SELECT by name either column of a pair of columns that have been joined. But
+    coreutils' join tool writes only one column for each input pair that have been joined on. So this
+    output column needs to have the names of both input columns to conform to SQL SELECT rules.
+    """
+    return [ merge_columns(left_table.columns[li], right_table.columns[ri]) for li, ri in indices ]

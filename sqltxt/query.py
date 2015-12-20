@@ -1,4 +1,4 @@
-from column import Column
+from column import Column, ColumnName
 from table import Table
 from joins import join_tables
 from ordered_set import OrderedSet
@@ -16,7 +16,7 @@ class Query(object):
 
         self.from_clause = from_clause
         self.where_clauses = where_clauses
-        self.columns = [Column(c) if not isinstance(c, Column) else c for c in columns]
+        self.column_names = [ColumnName(c) if not isinstance(c, ColumnName) else c for c in columns]
 
     @staticmethod
     def _replace_column_wildcards(column_list, replacement_columns):
@@ -88,39 +88,24 @@ class Query(object):
             table_alias = self.from_clause['left_relation'].get('alias', [False])[0] or table_path
             self.result_table = Table.from_file_path(table_path, alias=table_alias)
 
-        # make sure each subquery column appears at most once across the right and left tables 
-        self.validate_subquery_columns()
-
         where_conditions = _normalize_sql_boolean_operators(self.where_clauses)
         self.result_table.subset_rows(where_conditions)
         
         # order result columns to match the select list via a Table method
-        self.order_output_columns()
+        if self.is_top_level:
+            self.result_table.order_columns(self.column_names, drop_other_columns=self.is_top_level)
+            self.result_table.set_column_aliases(self.column_names)
         return self.result_table
 
     def get_subquery_columns(self, join_conditions):
         """Return the union of this query's columns and the columns used in the join."""
-        subquery_columns = OrderedSet(self.columns)
+        subquery_columns = OrderedSet(self.column_names)
         for jc in join_conditions:
             for col_name in (jc['left_operand'], jc['right_operand']):
-                subquery_columns.add(Column(col_name))
+                subquery_columns.add(ColumnName(col_name))
         return subquery_columns
 
-    def order_output_columns(self):
 
-        if self.columns == self.result_table.columns:
-            return None
-
-        output_columns = []
-        for query_col in self.columns:
-            for result_col in self.result_table.columns:
-                if query_col == result_col:
-                    output_columns.append(result_col)
-
-        self.result_table.order_columns(
-            output_columns,
-            drop_other_columns = self.is_top_level)
-  
 def _normalize_sql_boolean_operators(sql_where_clauses):
     """Given tokenized SQL where clauses, return their translations to normal boolean operators."""
 

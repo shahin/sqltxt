@@ -102,8 +102,8 @@ on_ = Keyword('on', caseless=True)
 join = ((oneOf('left right') + 'join' ) | (Optional('inner') + 'join')
         ).setResultsName('join_type')
 
-from_clause = table_idr.setResultsName('left_relation') + ZeroOrMore(Group(
-    join + table_idr.setResultsName('right_relation') + on_ + where_cond.setResultsName('join_conditions') 
+from_clause = table_idr.setResultsName('relation') + ZeroOrMore(Group(
+    join + table_idr.setResultsName('relation') + on_ + where_cond.setResultsName('join_conditions') 
   )).setResultsName('joins', listAllMatches=True)
 
 select_stmt << (
@@ -116,3 +116,34 @@ select_stmt << (
     StringEnd()
     )
 
+
+def normalize_relation(relation_clause):
+    return {
+        'path': relation_clause['path']
+        'alias': relation_clause.get('alias', [False])[0] or relation_clause['path']
+    }
+
+def normalize_from_clause(from_clause):
+    normalized = [{'relation': normalize_relation(from_clause['relation'])}]
+
+    for join_clause in from_clause['joins'][0]:
+
+        normalized_join = {}
+        normalized_join['relation'] = normalize_relation(join_clause['relation'])
+
+        normalized_join['join_conditions'] = []
+        for c in join_clause['join_conditions']:
+            normalized_join['join_conditions'].append({
+                'left_operand': c['left_operand'],
+                'right_operand': c['right_operand'],
+                'operator': c['operator']
+                })
+
+        normalized.append(normalized_join) 
+    
+    return normalized
+
+def parse(sql_string):
+    parsed = select_stmt.parseString(sql_string)
+    parsed.from_clause = normalize_from_clause(parsed.from_clause)
+    return parsed

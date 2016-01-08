@@ -1,4 +1,4 @@
-from column import Column, ColumnName
+from column import ColumnName
 from table import Table
 from joins import join_tables
 from ordered_set import OrderedSet
@@ -14,9 +14,16 @@ class Query(object):
 
         self.is_top_level = is_top_level
 
-        self.from_clause = from_clause
+        self.normalize_from_clause(from_clause)
         self.where_clauses = where_clauses
         self.column_names = [ColumnName(c) if not isinstance(c, ColumnName) else c for c in columns]
+
+    @staticmethod
+    def normalize_from_clause(from_clause):
+        for clause in from_clause:
+            for condition in clause.get('join_conditions', []):
+                for operand in ('left_operand', 'right_operand', ):
+                    condition[operand] = ColumnName(condition[operand])
 
     @staticmethod
     def _replace_column_wildcards(column_list, replacement_columns):
@@ -31,30 +38,6 @@ class Query(object):
 
         return columns_resolved_wildcards
 
-    @staticmethod
-    def split_from_clause(from_clause):
-        """Given a list of join clauses, return a new from-clause with a leftmost relation and
-        the rest of the join clauses as a new join clause."""
-
-        joins = from_clause['joins'][0]
-
-        left_from_clause = { 'left_relation': from_clause['left_relation'] }
-        right_from_clause = {
-            'left_relation': {
-                'path': joins[0]['right_relation']['path'],
-                'alias': joins[0]['right_relation'].get('alias', joins[0]['right_relation']['path'])
-            },
-        }
-
-        remaining_joins = joins[1:]
-        if remaining_joins:
-            right_from_clause['joins'] = [remaining_joins]
-        
-        join_type = joins[0]['join_type'] or 'inner'
-        join_conditions = joins[0]['join_conditions']
-        
-        return left_from_clause, right_from_clause, join_type, join_conditions
-
     def generate_table(self):
         """Return a Table representing the result of this Query.
 
@@ -68,7 +51,7 @@ class Query(object):
           result of the sub-Query (which is also a Table).
         """
 
-        if 'joins' in self.from_clause:
+        if len(self.from_clause) > 1:
 
             left_from_clause, right_from_clause, join_type, join_conditions = \
                 self.split_from_clause(self.from_clause)
@@ -84,11 +67,11 @@ class Query(object):
             self.result_table = join_tables(self.left_table, self.right_table, join_type, join_conditions)
 
         else:
-            table_path = self.from_clause['left_relation']['path']
-            table_alias = self.from_clause['left_relation'].get('alias', [False])[0] or table_path
+            table_path = self.from_clause['relation']['path']
+            table_alias = self.from_clause['relation']['alias']
             self.result_table = Table.from_file_path(table_path, alias=table_alias)
 
-        where_conditions = _normalize_sql_boolean_operators(self.where_clauses)
+        where_conditions = _awkify_sql_boolean_operators(self.where_clauses)
         self.result_table.subset_rows(where_conditions)
         
         # order result columns to match the select list via a Table method
@@ -106,8 +89,8 @@ class Query(object):
         return subquery_columns
 
 
-def _normalize_sql_boolean_operators(sql_where_clauses):
-    """Given tokenized SQL where clauses, return their translations to normal boolean operators."""
+def _awkify_sql_boolean_operators(sql_where_clauses):
+    """Given tokenized SQL where clauses, return their translations to awk boolean operators."""
 
     comparison_operators = {
         '=': '==',

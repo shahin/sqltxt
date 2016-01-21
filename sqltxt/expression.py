@@ -1,30 +1,24 @@
 from ordered_set import OrderedSet
-from collections import Iterable
+import collections
 import re
 
 import ast
 import sympy as sp
 
 from column import ColumnName, InvalidColumnNameError
-from boolean import And, Or
 from sql_tokenizer import stringify_conditions
 
 def get_cnf_conditions(conditions):
     tree = ast.parse(stringify_conditions(conditions))
     cp = ConditionParser()
     cp.visit(tree)
-    return cp.get_expressions(cp.conditions, cp.expression_symbols)
+    return cp.cnf_conditions
 
 
 class ConditionParser(ast.NodeVisitor):
-    # identify any join-capable RelationalExpression; these are REs that are not Ors, that do not
-    #       have NOTs; throw these join-capable into a list
-    # --> PLAN <--
-    # make a { tablealias: [RE, RE, RE, ... ], ... } index of REs available for joins
-    # step through the plan sequence and assign REs as soon as their two tables exist
 
     def __init__(self, *args, **kwargs):
-        self.conditions = []
+        self.conditions = None
         self.ops_stack = []
         self.boolean_ops_map = { ast.Or: sp.Or, ast.And: sp.And, }
         self.relational_ops_map = {
@@ -51,53 +45,65 @@ class ConditionParser(ast.NodeVisitor):
         if self.ops_stack:
             self.ops_stack[-1]['args'].append(this_op['op'](*this_op['args']))
         else:
-            self.conditions.append(this_op['op'](*this_op['args']))
+            self.conditions = this_op['op'](*this_op['args'])
 
     def visit_Compare(self, node):
 
-        if isinstance(node.left, ast.Attribute):
-            left = node.left.value.id + '.' + node.left.attr
-        elif isinstance(node.left, ast.Name):
-            left = node.left.id
-        else:
-            left = node.left.n
+        expr_operands = []
+        for child_node in (node.left, node.comparators[0], ):
+            if isinstance(child_node, ast.Attribute):
+                operand = child_node.value.id + '.' + child_node.attr
+            elif isinstance(child_node, ast.Name):
+                operand = child_node.id
+            elif isinstance(child_node, ast.Str):
+                operand = '"' + child_node.s + '"'
+            else:
+                operand = child_node.n
+            expr_operands.append(operand)
 
-        if isinstance(node.left, ast.Attribute):
-            right = node.comparators[0].value.id + '.' + node.left.attr
-        elif isinstance(node.comparators[0], ast.Name):
-            right = node.comparators[0].id
-        else:
-            right = node.comparators[0].n
         operator = self.relational_ops_map[node.ops[0].__class__]
 
-        expr = Expression(left, operator, right)
+        expr = Expression(expr_operands[0], operator, expr_operands[1])
         expr_symbol = sp.Symbol(str(expr))
         self.expression_symbols[expr_symbol] = expr
 
         if self.ops_stack:
             self.ops_stack[-1]['args'].append(expr_symbol)
         else:
-            self.conditions.append(expr_symbol)
+            self.conditions = expr_symbol
 
     @property
     def cnf_conditions(self):
         cnf = sp.to_cnf(self.conditions)
-        return self.get_expressions(cnf, self.expression_symbols)
+        cnf_expressions = self.get_expressions(cnf, self.expression_symbols)
+        if not isinstance(cnf_expressions, AndList):
+            cnf_expressions = AndList([cnf_expressions])
+
+        return cnf_expressions
 
     @classmethod
     def get_expressions(cls, conditions, expression_symbols):
+        """Given conditions as symbols in CNF, return those same conditions as Expressions in a
+        list."""
 
         expressions = []
-        for arg in conditions:
-            if isinstance(arg, sp.Symbol):
-                expressions.append(expression_symbols[arg])
-            elif isinstance(arg, sp.Or):
-                or_expressions = Or(cls.get_expressions(arg))
-                expressions.append(or_expressions)
-            else:
-                raise Exception("Conditions aren't in CNF: {}".format(conditions))
+        if isinstance(conditions, sp.Symbol):
+            expressions.append(expression_symbols[conditions])
+        elif isinstance(conditions, sp.FunctionClass):
+            for arg in conditions.args:
+                if isinstance(arg, sp.Symbol):
+                    expressions.append(expression_symbols[arg])
+                elif isinstance(arg, sp.Or):
+                    or_expressions = OrList(cls.get_expressions(arg, expression_symbols))
+                    expressions.append(or_expressions)
+                else:
+                    raise Exception("Conditions aren't in CNF: {}".format(conditions))
                 
-        return And(expressions)
+        if isinstance(conditions, sp.Or):
+            return_wrapper = OrList
+        else:
+            return_wrapper = AndList
+        return return_wrapper(expressions)
 
 
 def is_boolean_operator(term):
@@ -130,17 +136,6 @@ def normalize_relational_operator(operator):
     else:
         raise InvalidExpressionOperator(operator)
 
-def negate_operator(operator):
-
-    negations = {
-        '==': '!=',
-        '>=': '<',
-        '<=': '>'
-    }
-    negations = dict( negations.items() + [ (op[1], op[0], ) for op in negations.items() ] )
-
-    return negations[operator]
-
 class InvalidExpressionOperator(Exception):
 
     def __init__(self, operator):
@@ -159,6 +154,12 @@ class Expression(object):
     def can_join(self):
         return self.is_across_tables() and self.operator == '=='
     
+    @property
+    def column_names(self):
+        return set([
+            cn for cn in (self.left_operand, self.right_operand, ) if isinstance(cn, ColumnName)
+        ])
+
     def as_dict(self):
         return {
             'left_operand': self.left_operand,
@@ -184,9 +185,6 @@ class Expression(object):
             len(set(self.right_operand.qualifiers) | set(self.left_operand.qualifiers)) > \
             len(set(self.right_operand.qualifiers) & set(self.left_operand.qualifiers))
 
-    def negate(self):
-        self.operator = negate_operator(self.operator)
-
     def __str__(self):
         return 'Expression({})'.format(
             ' '.join([repr(self.left_operand), self.operator, repr(self.right_operand)])
@@ -195,3 +193,75 @@ class Expression(object):
     def __repr__(self):
         return str(self)
 
+    def __eq__(self, other):
+        return  \
+            self.left_operand == other.left_operand and \
+            self.operator == other.operator and \
+            self.right_operand == other.right_operand
+
+class BooleanExpression(collections.MutableSequence):
+    """A base class for boolean binary operators ('and' and 'or')."""
+
+    operator_str = 'NotImplemented'
+
+    def __init__(self, args):
+        self.args = args
+
+    @property
+    def column_names(self):
+        """Return all column names used in the arguments to this boolean operator."""
+        column_names = []
+        for arg in self.args:
+            if isinstance(arg, Expression):
+                names = arg.column_names
+                if names:
+                    column_names.extend(names)
+            elif isinstance(arg, BooleanExpression):
+                column_names.extend(arg.column_names())
+        return set(column_names)
+
+    def args_with_operator(self):
+        """Return this boolean expression as a list of Expressions, boolean operators, and nested
+        lists for any nested boolean expressions."""
+        args = [
+            [arg.args_with_operator()] if isinstance(arg, BooleanExpression) else arg
+            for arg in self.args
+        ]
+        return [ i for pair in zip(args, [self.operator_str] * len(self.args)) for i in pair ][:-1]
+
+    def __str__(self):
+        return ' '.join([str(a) for a in self.args_with_operator()])
+
+    def __eq__(self, other):
+        return \
+            all([ left == right for left, right in zip(self.args, other.args) ]) and \
+            len(self.args) == len(other.args)
+
+    def __getitem__(self, key):
+        return self.args[key]
+
+    def __setitem__(self, key, value):
+        self.args[key] = value
+
+    def __delitem__(self, key):
+        del self.args[key]
+
+    def __len__(self):
+        return len(self.args)
+
+    def __str__(self):
+        return '{0}({1})'.format(self.__class__, self.args)
+
+    def __repr__(self):
+        return str(self)
+
+    def insert(self, i, x):
+        self.args.insert(i, x)
+
+
+class OrList(BooleanExpression):
+    operator_str = 'or'
+
+
+class AndList(BooleanExpression):
+    operator_str = 'and'

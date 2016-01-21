@@ -1,5 +1,32 @@
 from ordered_set import OrderedSet
 import copy
+import re
+
+VALID_IDENTIFIER_REGEX = '^[a-zA-Z_][a-zA-Z0-9_.]*$'
+
+
+class AmbiguousColumnNameError(Exception):
+    def __init__(self, column_name, matched_columns):
+        message = 'Ambiguous column reference {0} which matches {1}'.format(
+            column_name, [c.names for c in matched_columns])
+        super(self.__class__, self).__init__(message)
+
+
+class UnknownColumnNameError(Exception):
+    def __init__(self, column_name):
+        message = 'Unknown column name {0}'.format(column_name.original_token)
+        super(self.__class__, self).__init__(message)
+
+
+class InvalidColumnNameError(Exception):
+    def __init__(self, column_name):
+        message = 'Invalid column name {0}'.format(column_name)
+        super(self.__class__, self).__init__(message)
+
+
+def is_valid_identifier(identifier):
+    return re.match(VALID_IDENTIFIER_REGEX, identifier)
+
 
 class Column(object):
 
@@ -41,8 +68,13 @@ class Column(object):
 class ColumnName(object):
 
     def __init__(self, name, qualifiers=None):
+        self.original_token = name
         name_parts = name.split('.')
         self.name = name_parts[-1]
+
+        if not is_valid_identifier(self.name):
+            raise InvalidColumnNameError(self.name)
+
         self.qualifiers = OrderedSet(qualifiers or [])
         if len(name_parts) > 1:
             self.qualifiers.add('.'.join(name_parts[:-1]).lower())
@@ -93,9 +125,7 @@ class ColumnName(object):
         return self._cased_name
 
     def __repr__(self):
-        if self.qualifiers:
-            return '<ColumnName ' + '.'.join([qualifiers_to_str(self.qualifiers), self.name]) + '>'
-        return self.name
+        return '<ColumnName ' + '.'.join([qualifiers_to_str(self.qualifiers), self.name]) + '>'
 
     def match(self, *right_column_names):
         return [col for col in right_column_names if self >= col]

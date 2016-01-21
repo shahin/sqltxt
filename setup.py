@@ -7,5 +7,10 @@ setup(
         'pyparsing',
         'ordered-set',
         'docopt'
-    ]
+    ],
+    entry_points={
+        'console_scripts': [
+            'sqltxt = sqltxt.__main__:main'
+        ]
+    },
 )

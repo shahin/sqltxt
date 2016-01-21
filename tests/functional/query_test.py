@@ -1,8 +1,9 @@
 import unittest
 import os
 from sqltxt.table import Table
-from sqltxt.query import Query 
-from sqltxt.column import Column
+from sqltxt.query import Query, condition_applies, assign_columns, assign_conditions
+from sqltxt.column import Column, ColumnName, AmbiguousColumnNameError
+from sqltxt.expression import Expression, And, Or
 import subprocess
 
 class QueryTest(unittest.TestCase):
@@ -31,6 +32,95 @@ class QueryTest(unittest.TestCase):
           columns = table_header
           )
 
+    def test_condition_applies(self):
+
+        condition = AndList([
+            Expression('table_a.col_a', '==', 'table_b.col_z'),
+            Expression('table_a.col_b', '==', 'table_b.col_a')
+        ])
+        self.assertTrue(condition_applies(condition, self.table_a, self.table_b))
+
+        condition = OrList([
+            Expression('table_a.col_a', '==', 'table_b.col_z'),
+            Expression('table_a.col_b', '==', 'table_b.col_a')
+        ])
+        self.assertTrue(condition_applies(condition, self.table_a, self.table_b))
+
+        condition = OrList([
+            Expression('table_a.col_a', '==', 'table_b.col_z'),
+            Expression('table_a.col_b', '==', 'table_b.col_a')
+        ])
+        self.assertFalse(condition_applies(condition, self.table_a))
+
+        condition = AndList([
+            Expression('table_a.col_a', '==', 'table_b.col_z'),
+            Expression('table_c.col_b', '==', 'table_b.col_a')
+        ])
+        self.assertFalse(condition_applies(condition, self.table_a, self.table_b))
+
+        condition = OrList([
+            Expression('table_a.col_a', '==', 'table_b.col_j'),
+            Expression('table_a.col_b', '==', 'table_b.col_a')
+        ])
+        self.assertFalse(condition_applies(condition, self.table_a, self.table_b))
+
+        condition = AndList([
+            Expression('table_a.col_a', '==', '1'),
+            Expression('table_a.col_b', '==', 'table_b.col_a')
+        ])
+        self.assertTrue(condition_applies(condition, self.table_a, self.table_b))
+
+        with self.assertRaises(AmbiguousColumnNameError):
+            condition = AndList([
+                Expression('table_a.col_a', '==', '1'),
+                Expression('table_a.col_b', '==', 'col_a')
+            ])
+            condition_applies(condition, self.table_a, self.table_b)
+
+    def test_assign_columns(self):
+
+        column_names = [
+            ColumnName('table_a.col_a'),
+            ColumnName('table_b.col_a'),
+            ColumnName('col_z'),
+            ColumnName('col_b'),
+        ]
+        expected_assignment = [
+            [ColumnName('table_a.col_a'), ColumnName('col_b'), ],
+            [ColumnName('table_b.col_a'), ColumnName('col_z'), ]
+        ]
+        actual_assignment = assign_columns([self.table_a, self.table_b], column_names)
+        self.assertEqual(expected_assignment, actual_assignment)
+
+        with self.assertRaises(AmbiguousColumnNameError):
+            column_names = [ColumnName('col_a'), ]
+            actual_assignment = assign_columns([self.table_a, self.table_b], column_names)
+
+    def test_assign_conditions(self):
+
+        conditions = [
+            Expression('table_a.col_a', '==', 'table_b.col_z'),
+            Expression('table_a.col_a', '==', 'table_a.col_b'),
+            OrList([
+                Expression('table_a.col_a', '==', 'table_b.col_z'),
+                Expression('table_a.col_a', '==', 'table_a.col_b')
+            ]),
+        ]
+
+        expected_condition_order = [
+            [Expression('table_a.col_a', '==', 'table_a.col_b')],
+            [
+                Expression('table_a.col_a', '==', 'table_b.col_z'),
+                OrList([
+                    Expression('table_a.col_a', '==', 'table_b.col_z'),
+                    Expression('table_a.col_a', '==', 'table_a.col_b')
+                ])
+            ],
+        ]
+        actual_condition_order = assign_conditions([self.table_a, self.table_b], conditions)
+        self.assertEqual(expected_condition_order, actual_condition_order)
+
+
     def test_select(self):
 
         query = Query({'left_relation': {'path': 'table_a.txt'}}, [], ['col_b'])
@@ -48,7 +138,11 @@ class QueryTest(unittest.TestCase):
           
     def test_where(self):
 
-        query = Query({'left_relation': {'path': 'table_a.txt'}}, [['col_b', '<', '3']], ['col_a'])
+        query = Query(
+            [{'path': 'table_a.txt', 'alias': 'table_a.txt'}],
+            [['col_b', '<', '3']],
+            ['col_a']
+        )
         table_actual = query.generate_table()
 
         table_expected = Table.from_cmd(

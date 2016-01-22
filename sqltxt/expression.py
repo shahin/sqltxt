@@ -52,7 +52,7 @@ class ConditionParser(ast.NodeVisitor):
         expr_operands = []
         for child_node in (node.left, node.comparators[0], ):
             if isinstance(child_node, ast.Attribute):
-                operand = child_node.value.id + '.' + child_node.attr
+                operand = self._get_attribute_name(child_node)
             elif isinstance(child_node, ast.Name):
                 operand = child_node.id
             elif isinstance(child_node, ast.Str):
@@ -71,6 +71,12 @@ class ConditionParser(ast.NodeVisitor):
             self.ops_stack[-1]['args'].append(expr_symbol)
         else:
             self.conditions = expr_symbol
+
+    def _get_attribute_name(self, node):
+        if isinstance(node, ast.Attribute):
+            return self._get_attribute_name(node.value) + '.' + node.attr
+        elif isinstance(node, ast.Name):
+            return node.id
 
     @property
     def cnf_conditions(self):

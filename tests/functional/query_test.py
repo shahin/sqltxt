@@ -1,9 +1,9 @@
 import unittest
 import os
 from sqltxt.table import Table
-from sqltxt.query import Query, condition_applies, assign_columns, assign_conditions
+from sqltxt.query import Query, condition_applies, stage_columns, stage_conditions
 from sqltxt.column import Column, ColumnName, AmbiguousColumnNameError
-from sqltxt.expression import Expression, And, Or
+from sqltxt.expression import Expression, AndList, OrList
 import subprocess
 
 class QueryTest(unittest.TestCase):
@@ -77,7 +77,7 @@ class QueryTest(unittest.TestCase):
             ])
             condition_applies(condition, self.table_a, self.table_b)
 
-    def test_assign_columns(self):
+    def test_stage_columns(self):
 
         column_names = [
             ColumnName('table_a.col_a'),
@@ -85,18 +85,18 @@ class QueryTest(unittest.TestCase):
             ColumnName('col_z'),
             ColumnName('col_b'),
         ]
-        expected_assignment = [
+        expected_stages = [
             [ColumnName('table_a.col_a'), ColumnName('col_b'), ],
             [ColumnName('table_b.col_a'), ColumnName('col_z'), ]
         ]
-        actual_assignment = assign_columns([self.table_a, self.table_b], column_names)
-        self.assertEqual(expected_assignment, actual_assignment)
+        actual_stages = stage_columns([self.table_a, self.table_b], column_names)
+        self.assertEqual(expected_stages, actual_stages)
 
         with self.assertRaises(AmbiguousColumnNameError):
             column_names = [ColumnName('col_a'), ]
-            actual_assignment = assign_columns([self.table_a, self.table_b], column_names)
+            actual_stages = stage_columns([self.table_a, self.table_b], column_names)
 
-    def test_assign_conditions(self):
+    def test_stage_conditions(self):
 
         conditions = [
             Expression('table_a.col_a', '==', 'table_b.col_z'),
@@ -117,14 +117,17 @@ class QueryTest(unittest.TestCase):
                 ])
             ],
         ]
-        actual_condition_order = assign_conditions([self.table_a, self.table_b], conditions)
+        actual_condition_order = stage_conditions([self.table_a, self.table_b], conditions)
         self.assertEqual(expected_condition_order, actual_condition_order)
 
 
     def test_select(self):
 
-        query = Query({'left_relation': {'path': 'table_a.txt'}}, [], ['col_b'])
-        table_actual = query.generate_table()
+        query = Query(
+            [{'path': 'table_a.txt', 'alias': 'table_a.txt'}],
+            columns=['col_b']
+        )
+        table_actual = query.execute()
 
         table_expected = Table.from_cmd(
             name = 'expected', 
@@ -140,15 +143,15 @@ class QueryTest(unittest.TestCase):
 
         query = Query(
             [{'path': 'table_a.txt', 'alias': 'table_a.txt'}],
-            [['col_b', '<', '3']],
-            ['col_a']
+            conditions=[['col_b', '<', '3']],
+            columns=['col_a']
         )
-        table_actual = query.generate_table()
+        table_actual = query.execute()
 
         table_expected = Table.from_cmd(
-          'expected', 
+          'expected',
           cmd = 'echo -e "1\n3"',
-          columns = ['col_a'] 
+          columns = ['col_a']
           )
 
         table_expected_out = subprocess.check_output(['/bin/bash', '-c', table_expected.get_cmd_str(output_column_names=True)])
@@ -158,21 +161,16 @@ class QueryTest(unittest.TestCase):
     def test_join_columns(self):
 
         query = Query(
-          from_clause = {
-              'left_relation': {'path': 'table_a.txt'},
-              'joins': [[{
-                  'join_type': 'inner',
-                  'right_relation': {'path': 'table_b.txt'},
-                  'join_conditions': [{
-                      'left_operand': 'table_a.txt.col_a',
-                      'right_operand': 'table_b.txt.col_a',
-                      'operator': '='
-                      }]
-              }]]
-          },
-          where_clauses = [], 
-          columns = ['col_a', 'col_b', 'col_z'])
-        t = query.generate_table()
+            [
+                {'path': 'table_a.txt', 'alias': 'table_a.txt'},
+                {'path': 'table_b.txt', 'alias': 'table_b.txt'}
+            ],
+            conditions=[
+                ['table_a.txt.col_a', '==', 'table_b.txt.col_a'],
+            ],
+            columns=['table_a.txt.col_a', 'col_b', 'col_z']
+        )
+        t = query.execute()
         header_actual = t.columns
         header_expected = ['col_a', 'col_b', 'col_z']
 
@@ -181,22 +179,17 @@ class QueryTest(unittest.TestCase):
     def test_join_two_tables(self):
         
         query = Query(
-          from_clause = {
-              'left_relation': {'path': 'table_a.txt'},
-              'joins': [[{
-                  'join_type': 'inner',
-                  'right_relation': {'path': 'table_b.txt'},
-                  'join_conditions': [{
-                      'left_operand': 'table_a.txt.col_a',
-                      'right_operand': 'table_b.txt.col_a',
-                      'operator': '='
-                  }]
-              }]]
-          },
-          where_clauses = [],
-          columns = ['col_a', 'col_b', 'col_z'])
+            [
+                {'path': 'table_a.txt', 'alias': 'table_a.txt'},
+                {'path': 'table_b.txt', 'alias': 'table_b.txt'}
+            ],
+            conditions=[
+                ['table_a.txt.col_a', '==', 'table_b.txt.col_a'],
+            ],
+            columns=['table_a.txt.col_a', 'col_b', 'col_z']
+        )
 
-        table_actual = query.generate_table()
+        table_actual = query.execute()
         table_expected = Table.from_cmd(
           name = 'table_a', 
           cmd = 'echo -e "1,1,w\n2,3,x\n2,3,y"',
@@ -211,21 +204,16 @@ class QueryTest(unittest.TestCase):
     def test_join_two_tables_with_sort(self):
         
         query = Query(
-          from_clause = {
-              'left_relation': {'path': 'table_a.txt'},
-              'joins': [[{
-                  'join_type': 'inner',
-                  'right_relation': {'path': 'table_b.txt'},
-                  'join_conditions': [{
-                      'left_operand': 'table_a.txt.col_b',
-                      'right_operand': 'table_b.txt.col_a',
-                      'operator': '=',
-                  }]
-              }]]
-          },
-          where_clauses = [], 
-          columns = ['col_b', 'table_b.txt.col_a', 'col_z'])
-        table_actual = query.generate_table()
+            [
+                {'path': 'table_a.txt', 'alias': 'table_a.txt'},
+                {'path': 'table_b.txt', 'alias': 'table_b.txt'}
+            ],
+            conditions=[
+                ['table_a.txt.col_b', '==', 'table_b.txt.col_a'],
+            ],
+            columns=['col_b', 'table_b.txt.col_a', 'col_z']
+        )
+        table_actual = query.execute()
         cmd_actual = table_actual.get_cmd_str(output_column_names=True)
         cmd_expected = \
           'echo "col_b,col_a,col_z"; ' + \
@@ -244,7 +232,7 @@ class QueryTest(unittest.TestCase):
             from_clause = {'left_relation': {'path': 'table_a.txt'}}, 
             where_clauses = [], 
             columns = ['*'])
-        table_actual = query.generate_table()
+        table_actual = query.execute()
         cmd_actual = table_actual.get_cmd_str(output_column_names=True)
         cmd_expected = 'echo "col_a,col_b"; tail +2 TABLE_A.txt'
         self.assertEqual(cmd_actual, cmd_expected)
@@ -261,7 +249,7 @@ class QueryTest(unittest.TestCase):
           from_clause = [['table_a'],[['inner','join'],'table_b','on',['table_a.col_b', '=', 'table_b.col_a']]], 
           where_clauses = [], 
           columns = ['*'])
-        table_actual = query.generate_table()
+        table_actual = query.execute()
         cmd_actual = table_actual.get_cmd_str(output_column_names=True)
         cmd_expected = \
           'echo "col_b,col_a,col_z"; ' + \

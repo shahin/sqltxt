@@ -118,7 +118,7 @@ def map_aliases(relations):
 class Query(object):
     """Create Tables and perform operations on them."""
 
-    def __init__(self, relations, conditions, columns = None, is_top_level = True):
+    def __init__(self, relations, conditions=None, columns = None, is_top_level = True):
         self.is_top_level = is_top_level  # not a subquery
 
         self.column_names = OrderedSet([
@@ -127,6 +127,8 @@ class Query(object):
         self.table_aliases = map_aliases(relations)
         self.relations = relations
 
+        if conditions is None:
+            conditions = []
         self.join_conditions, self.where_conditions = classify_conditions(conditions)
         self.conditions = self.join_conditions + self.where_conditions
 

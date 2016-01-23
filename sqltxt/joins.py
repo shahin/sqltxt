@@ -8,11 +8,11 @@ def join_tables(left_table, right_table, join_type, join_conditions):
     """Return a Table representing the join of the left and right Tables of this Query."""
 
     LOG.debug('Performing join on ({0})'.format(
-      ', '.join([' '.join(c) for c in join_conditions])))
+      ', '.join([str(c) for c in join_conditions])))
 
     # find the indices of the columns used in the join conditions
-    parsed_join_conditions = parse_join_conditions(join_conditions)
-    indices = _get_join_indices(left_table, right_table, parsed_join_conditions)
+    validated_join_conditions = validate_join_conditions(join_conditions)
+    indices = _get_join_indices(left_table, right_table, validated_join_conditions)
     left_indices = [li for li, ri in indices]
     right_indices = [ri for li, ri in indices]
 
@@ -44,12 +44,12 @@ def join_tables(left_table, right_table, join_type, join_conditions):
 
     return join_result_table
 
-def parse_join_conditions(join_conditions):
+def validate_join_conditions(join_conditions):
     """Given join conditions defined as string tokens in a dictionary, return a validated set of join
     conditions defined as Column objects in a dictionary."""
 
     for condition in join_conditions:
-        if condition['operator'] != '=':
+        if condition.operator != '==':
             raise ValueError('Operator {} not supported; only equality joins are supported.'.format(
                 operator))
     
@@ -57,15 +57,7 @@ def parse_join_conditions(join_conditions):
     if n_cond > 1:
         raise ValueError('Only 1 join condition is supported, but {} were found.'.format(n_cond))
      
-    parsed_conditions = []
-    for cond in join_conditions:
-        parsed_conditions.append({
-            'operator': cond['operator'],
-            'left_operand': ColumnName(cond['left_operand']),
-            'right_operand': ColumnName(cond['right_operand'])
-        })
-
-    return parsed_conditions
+    return join_conditions
 
 def _get_join_indices(left_table, right_table, join_conditions):
     """Given the join conditions, return the indices of the columns used in the join."""
@@ -73,7 +65,7 @@ def _get_join_indices(left_table, right_table, join_conditions):
     left_indices = []
     right_indices = []
     for cond in join_conditions:
-        for join_col_name in (cond['left_operand'], cond['right_operand']):
+        for join_col_name in (cond.left_operand, cond.right_operand):
 
             left_col = left_table.get_column_for_name(join_col_name)
             right_col = right_table.get_column_for_name(join_col_name)

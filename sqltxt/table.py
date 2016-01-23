@@ -2,8 +2,10 @@ import itertools
 import logging
 import re
 import copy
+import collections
 
-from column import Column, ColumnName
+from column import Column, ColumnName, AmbiguousColumnNameError
+from expression import BooleanExpression
 
 def dedupe_with_order(dupes):
     """Given a list, return it without duplicates and order preserved."""
@@ -15,7 +17,6 @@ def dedupe_with_order(dupes):
             seen.add(c) 
             deduped.append(c)
     return deduped
-
 
 class Table(object):
     """Translate abstract data-manipulation operations to commands that perform them.
@@ -146,7 +147,11 @@ class Table(object):
         reorder_cmd = "awk -F'{0}' 'OFS=\"{0}\" {{ print {1} }}'".format(
             self.delimiter, ','.join('$' + str(idx + 1) for idx in col_idxs))
 
+        # reorder and re-alias the Columns on this Table
         self.columns = [copy.deepcopy(self.columns[idx]) for idx in col_idxs]
+        for column, alias in zip(self.columns, column_names_in_order):
+            column.alias = alias
+
         self.cmds.append(reorder_cmd)
 
     def is_sorted_by(self, sort_order_indices):
@@ -187,20 +192,16 @@ class Table(object):
     def subset_rows(self, conditions):
         """Subset the rows of this Table to rows that satisfy the given conditions."""
 
-        # translate a list of boolean conditions to awk syntax
-        condition_str = ''
-        for expr_part in conditions:
-            if not isinstance(expr_part, basestring):
-                # treat any PostgreSQL-valid identifier as a column
-                expr_part = [
-                    ('$' + str(self.column_idxs[self.get_column_for_name(ColumnName(token))][0] + 1) 
-                        if re.match(self.VALID_IDENTIFIER_REGEX, token) 
-                        else token
-                    )
-                    for token in expr_part]
-            condition_str += ''.join(expr_part)
+        conditions_list = [
+            cond.args_with_operator() if isinstance(cond, BooleanExpression) else cond
+            for cond in conditions
+        ]
+        and_conditions_list = [
+            i for pair in zip(conditions_list, ['and'] * len(conditions_list)) for i in pair
+        ][:-1]
+        condition_str = self.get_awk_statement(and_conditions_list)
 
-        if condition_str == '':
+        if not condition_str:
             self.LOG.debug('Empty condition string so not subsetting columns on {0}'.format(
                 self.name))
             return
@@ -209,6 +210,35 @@ class Table(object):
         awk_cmd = "awk -F'{0}' 'OFS=\"{0}\" {{ if ({1}) {{ print {2} }} }}'".format(
             self.delimiter, condition_str, columns)
         self.cmds.append(awk_cmd)
+
+    def get_awk_statement(self, conditions):
+        """Given a list of 'and', 'or', Expressions, and nested lists of the same, return the
+        equivalent conditional Awk string.
+        """
+
+        operator_map = {'or': '||', 'and': '&&'}
+
+        string_parts = []
+        for term in conditions:
+            if isinstance(term, basestring):
+                string_parts.append(operator_map[term])
+            elif isinstance(term, collections.Iterable):
+                string_parts.append('(' + self.get_awk_statement(term) + ')')
+            else:
+                expr_parts = []
+
+                for operand in (term.left_operand, term.right_operand, ):
+                    if isinstance(operand, ColumnName):
+                        ordinal = self.column_idxs[self.get_column_for_name(operand)][0] + 1
+                        expr_parts.append('$' + str(ordinal))
+                    else:
+                        expr_parts.append(operand)
+
+                string_parts.append(
+                    ' '.join((str(expr_parts[0]), term.operator, str(expr_parts[1]), ))
+                )
+
+        return ' '.join(string_parts)
 
     def get_cmd_str(self, output_column_names=False):
         """Return a string of commands whose output is the contents of this Table.""" 
@@ -246,7 +276,6 @@ class Table(object):
         if len(matched_columns) == 0:
             return None
         elif len(matched_columns) > 1:
-            raise IndexError('Ambiguous column reference {0} which matches {1}'.format(
-                column_name, [c.names for c in matched_columns]))
+            raise AmbiguousColumnNameError(column_name, matched_columns)
         else:
             return matched_columns[0]

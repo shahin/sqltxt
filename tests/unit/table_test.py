@@ -1,7 +1,8 @@
 import unittest
 import os
 from sqltxt.table import Table 
-from sqltxt.column import Column, ColumnName
+from sqltxt.column import Column, ColumnName, AmbiguousColumnNameError
+from sqltxt.expression import Expression
 
 class TableTest(unittest.TestCase):
 
@@ -34,13 +35,15 @@ class TableTest(unittest.TestCase):
 
     def test_subset_rows(self):
     
-        conditions = [['col_b', '==', '1'], ' || ', ['col_a', '==', '2']]
+        conditions = [
+            [Expression('col_b', '==', '1'), 'or', Expression('col_a', '==', '2')]
+        ]
         self.table_a.subset_rows(conditions)
        
         cmds_actual = self.table_a.cmds
         cmds_expected = [
             'echo -e "1,1\n2,3\n3,2"',
-            "awk -F',' 'OFS=\",\" { if ($2==1 || $1==2) { print $1,$2 } }'"]
+            "awk -F',' 'OFS=\",\" { if (($2 == 1 || $1 == 2)) { print $1,$2 } }'"]
         self.assertEqual(cmds_actual, cmds_expected)
 
     def test_order_columns(self):
@@ -84,7 +87,7 @@ class TableTest(unittest.TestCase):
             cmd = 'echo -e ""',
             columns = ['col_a', 'col_a'])
 
-        with self.assertRaisesRegexp(IndexError, 'Ambiguous column reference'):
+        with self.assertRaisesRegexp(AmbiguousColumnNameError, 'Ambiguous column reference'):
             table_from_cmd.get_column_for_name(ColumnName('col_a'))
 
         table_from_cmd = Table.from_cmd(
@@ -92,7 +95,7 @@ class TableTest(unittest.TestCase):
             cmd = 'echo -e ""',
             columns = ['ta.col_a', 'tb.col_a'])
 
-        with self.assertRaisesRegexp(IndexError, 'Ambiguous column reference'):
+        with self.assertRaisesRegexp(AmbiguousColumnNameError, 'Ambiguous column reference'):
             table_from_cmd.get_column_for_name(ColumnName('col_a'))
 
         first_column = Column('ta.col_a')
@@ -103,7 +106,7 @@ class TableTest(unittest.TestCase):
             cmd = 'echo -e ""',
             columns = [first_column, second_column])
 
-        with self.assertRaisesRegexp(IndexError, 'Ambiguous column reference'):
+        with self.assertRaisesRegexp(AmbiguousColumnNameError, 'Ambiguous column reference'):
             table_from_cmd.get_column_for_name(ColumnName('col_a'))
 
     def test_get_cmd_str(self):

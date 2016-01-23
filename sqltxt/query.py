@@ -1,22 +1,137 @@
-from column import Column, ColumnName
+import itertools
+from ordered_set import OrderedSet
+
+from column import ColumnName, AmbiguousColumnNameError, UnknownColumnNameError
 from table import Table
 from joins import join_tables
-from ordered_set import OrderedSet
+from plan import plan
+
+from expression import get_cnf_conditions, Expression
 
 import logging
 LOG = logging.getLogger(__name__)
 
+def stage_columns(tables, column_names):
+    """Given a list of tables and a list of ColumnNames, return a list of ColumnNames with each at
+    the index of the first table (from left to right) that it's available on.
+
+    Raises AmbiguousColumnNameError if a ColumnName is available on more than one table. Raises
+    UnknownColumnNameError if the column name can't be found on any of the given tables.
+    """
+
+    assigned_columns = [ [] for i in range(len(tables)) ]
+    for column_name in column_names:
+        matched_columns = []
+        for idx, table in enumerate(tables):
+            matched_column = table.get_column_for_name(column_name)
+            if matched_column:
+                assigned_columns[idx].append(column_name)
+                matched_columns.append(matched_column)
+
+        if len(matched_columns) > 1:
+            raise AmbiguousColumnNameError(column_name, matched_columns)
+        elif len(matched_columns) == 0:
+            raise UnknownColumnNameError(column_name)
+
+    return assigned_columns
+
+def stage_conditions(tables, conditions):
+    """Given a list of tables and a list of conditions, return a list of conditions with each at
+    the index of the first table (from left to right) that it's available on.
+    """
+    condition_order = [ [] for i in range(len(tables)) ]
+    for condition in conditions:
+        for idx in range(len(tables)):
+            if condition_applies(condition, *tables[:idx+1]):
+                condition_order[idx].append(condition)
+                break
+    return condition_order
+
+def condition_applies(condition, *tables):
+    """Return true if all columns in the condition are found on the given tables."""
+
+    for column_name in condition.column_names:
+        matched_columns = [
+            t.get_column_for_name(column_name) for t in tables
+            if t.get_column_for_name(column_name) is not None
+        ]
+
+        if len(matched_columns) > 1:
+            raise AmbiguousColumnNameError(column_name, matched_columns)
+        elif len(matched_columns) == 0:
+            return False
+
+    return True
+
+def classify_conditions(conditions):
+    """Given a list of conditions, return equivalent conditions partitioned into those that can be
+    used as join conditions and the rest as where conditions.
+    """
+    join_conditions = []
+    where_conditions = []
+
+    conditions = [ t for p in zip(conditions, ['and'] * len(conditions)) for t in p ][:-1]
+    cnf_conditions = get_cnf_conditions(conditions)
+    for condition in cnf_conditions:
+        if condition.can_join:
+            join_conditions.append(condition)
+        else:
+            where_conditions.append(condition)
+
+    return join_conditions, where_conditions
+
+def join(tables, join_conditions, where_conditions):
+
+    if len(tables) == 2:
+        joined_table = join_tables(
+            tables[0],
+            tables[1],
+            'inner',
+            join_conditions[-1],
+        )
+    elif len(tables) > 2:
+        left_table = join(
+            tables[:-1],
+            join_conditinos[:-1],
+            where_conditions[:-1],
+        )
+
+        joined_table = join_tables(
+            left_table,
+            tables[:-1],
+            'inner',
+            join_conditions[-1]
+        )
+    else:
+        raise Exception('Need at least two tables to join but only got {}'.format(tables))
+
+    joined_table.subset_rows(where_conditions[-1])
+    return joined_table
+
+def map_aliases(relations):
+    """Return a dictionary that contains each relation's alias keyed by itself and by its path."""
+    aliases = dict(
+        [ (r['path'], r['alias'], ) for r in relations ] + \
+        [ (r['alias'], r['alias'], ) for r in relations ]
+    )
+    return aliases
+
 class Query(object):
     """Create Tables and perform operations on them."""
 
-    def __init__(self, from_clause, where_clauses, columns = None, is_top_level = True):
-        """Instantiate a new Query from tokenized SQL clauses."""
+    def __init__(self, relations, conditions=None, columns = None, is_top_level = True):
+        self.is_top_level = is_top_level  # not a subquery
 
-        self.is_top_level = is_top_level
+        self.column_names = OrderedSet([
+            ColumnName(c) if not isinstance(c, ColumnName) else c for c in columns
+        ])
+        self.table_aliases = map_aliases(relations)
+        self.relations = relations
 
-        self.from_clause = from_clause
-        self.where_clauses = where_clauses
-        self.column_names = [ColumnName(c) if not isinstance(c, ColumnName) else c for c in columns]
+        if conditions is None:
+            conditions = []
+        self.join_conditions, self.where_conditions = classify_conditions(conditions)
+        self.conditions = self.join_conditions + self.where_conditions
 
     @staticmethod
     def _replace_column_wildcards(column_list, replacement_columns):
@@ -31,107 +146,43 @@ class Query(object):
 
         return columns_resolved_wildcards
 
-    @staticmethod
-    def split_from_clause(from_clause):
-        """Given a list of join clauses, return a new from-clause with a leftmost relation and
-        the rest of the join clauses as a new join clause."""
+    def execute(self):
 
-        joins = from_clause['joins'][0]
+        self.tables = []
 
-        left_from_clause = { 'left_relation': from_clause['left_relation'] }
-        right_from_clause = {
-            'left_relation': {
-                'path': joins[0]['right_relation']['path'],
-                'alias': joins[0]['right_relation'].get('alias', joins[0]['right_relation']['path'])
-            },
-        }
+        for relation in self.relations:
+            table_path = relation['path']
+            table_alias = relation['alias']
+            table = Table.from_file_path(table_path, alias=table_alias)
+            self.tables.append(table)
 
-        remaining_joins = joins[1:]
-        if remaining_joins:
-            right_from_clause['joins'] = [remaining_joins]
-        
-        join_type = joins[0]['join_type'] or 'inner'
-        join_conditions = joins[0]['join_conditions']
-        
-        return left_from_clause, right_from_clause, join_type, join_conditions
+        # determine which columns need to be on each table on output and on input
+        table_columns = stage_columns(self.tables, self.column_names)
+        unassigned_condition_columns = itertools.chain(
+            *[condition.column_names for condition in self.conditions]
+        )
+        condition_columns = stage_columns(self.tables, unassigned_condition_columns)
 
-    def generate_table(self):
-        """Return a Table representing the result of this Query.
+        # optimize join order
+        join_order = plan(self.tables, self.join_conditions, self.where_conditions)
+        self.tables = [self.tables[idx] for idx in join_order]
 
-        For Queries with no joins, this method uses Table methods to perform the standard subsetting
-        and ordering operations.
+        # determine where in the join tree to apply conditions
+        where_condition_order = stage_conditions(self.tables, self.where_conditions)
+        join_condition_order = stage_conditions(self.tables, self.join_conditions)
 
-        For Queries with joins across n Tables, this method 
-          1. instantiates a new Query representing the subquery across the right-most n-1 Tables,
-          2. calls generate_table on the sub-Query, and
-          3. returns the result of the 2-way join between the left-most Table of this query and the 
-          result of the sub-Query (which is also a Table).
-        """
+        # apply single-table where conditions to source tables
+        multi_table_conditions =[ [] for i in range(len(self.where_conditions)) ]
+        for table, conditions in zip(self.tables, where_condition_order):
+            single_table_conditions = [c for c in conditions if condition_applies(c, table)]
+            table.subset_rows(single_table_conditions)
+            multi_table_conditions.append(list(set(conditions) - set(single_table_conditions)))
 
-        if 'joins' in self.from_clause:
-
-            left_from_clause, right_from_clause, join_type, join_conditions = \
-                self.split_from_clause(self.from_clause)
-
-            # make sure join cols are in subquery, even if they're not in the select
-            subquery_columns = self.get_subquery_columns(join_conditions) 
-
-            self.right_subquery = Query(right_from_clause, [], subquery_columns, is_top_level=False)
-            self.left_subquery = Query(left_from_clause, [], subquery_columns, is_top_level=False)
-            self.right_table = self.right_subquery.generate_table()
-            self.left_table = self.left_subquery.generate_table()
-
-            self.result_table = join_tables(self.left_table, self.right_table, join_type, join_conditions)
-
+        # build the join tree in which nodes are intermediate Tables resulting from joins
+        if len(self.tables) > 1:
+            result = join(self.tables, join_condition_order, multi_table_conditions)
         else:
-            table_path = self.from_clause['left_relation']['path']
-            table_alias = self.from_clause['left_relation'].get('alias', [False])[0] or table_path
-            self.result_table = Table.from_file_path(table_path, alias=table_alias)
+            result = self.tables[0]
 
-        where_conditions = _normalize_sql_boolean_operators(self.where_clauses)
-        self.result_table.subset_rows(where_conditions)
-        
-        # order result columns to match the select list via a Table method
-        if self.is_top_level:
-            self.result_table.order_columns(self.column_names, drop_other_columns=self.is_top_level)
-            self.result_table.set_column_aliases(self.column_names)
-        return self.result_table
-
-    def get_subquery_columns(self, join_conditions):
-        """Return the union of this query's columns and the columns used in the join."""
-        subquery_columns = OrderedSet(self.column_names)
-        for jc in join_conditions:
-            for col_name in (jc['left_operand'], jc['right_operand']):
-                subquery_columns.add(ColumnName(col_name))
-        return subquery_columns
-
-
-def _normalize_sql_boolean_operators(sql_where_clauses):
-    """Given tokenized SQL where clauses, return their translations to normal boolean operators."""
-
-    comparison_operators = {
-        '=': '==',
-        'eq': '==',
-        'ne': '!=',
-        'ge': '>=',
-        'gt': '>',
-        'le': '<=',
-        'lt': '<'
-        }
-    logical_operators = {
-        'and': ' && ',
-        'or': ' || ',
-        }
-
-    bool_where_clauses = []
-
-    # translate SQL-specific boolean operators to the tokens that normal languages use
-    if len(sql_where_clauses) > 0:
-        for clause in sql_where_clauses:
-            if clause in logical_operators.keys():
-                bool_where_clauses.append(logical_operators[clause])
-            else:
-                bool_clause = [ comparison_operators.get(token, token) for token in clause ]
-                bool_where_clauses.append(bool_clause)
-
-    return bool_where_clauses
+        result.order_columns(self.column_names, True)
+        return result

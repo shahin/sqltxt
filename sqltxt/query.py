@@ -70,9 +70,10 @@ def classify_conditions(conditions):
     join_conditions = []
     where_conditions = []
 
+    conditions = [ t for p in zip(conditions, ['and'] * len(conditions)) for t in p ][:-1]
     cnf_conditions = get_cnf_conditions(conditions)
     for condition in cnf_conditions:
-        if isinstance(condition, Expression) and condition.can_join:
+        if condition.can_join:
             join_conditions.append(condition)
         else:
             where_conditions.append(condition)

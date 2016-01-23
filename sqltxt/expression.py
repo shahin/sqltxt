@@ -4,6 +4,7 @@ import re
 
 import ast
 import sympy as sp
+from sympy.logic import boolalg
 
 from column import ColumnName, InvalidColumnNameError
 from sql_tokenizer import stringify_conditions
@@ -95,7 +96,7 @@ class ConditionParser(ast.NodeVisitor):
         expressions = []
         if isinstance(conditions, sp.Symbol):
             expressions.append(expression_symbols[conditions])
-        elif isinstance(conditions, sp.FunctionClass):
+        elif isinstance(conditions, boolalg.BooleanFunction):
             for arg in conditions.args:
                 if isinstance(arg, sp.Symbol):
                     expressions.append(expression_symbols[arg])
@@ -223,7 +224,7 @@ class BooleanExpression(collections.MutableSequence):
                 if names:
                     column_names.extend(names)
             elif isinstance(arg, BooleanExpression):
-                column_names.extend(arg.column_names())
+                column_names.extend(arg.column_names)
         return set(column_names)
 
     def args_with_operator(self):

@@ -28,9 +28,9 @@ def build_graph(relations, join_conditions):
         for cond in join_conditions
     ]
 
-    neighbors = frozenset(itertools.chain(*edges))
-    for alias in neighbors:
-        graph[alias]['neighbors'].add(neighbors - frozenset([alias]))
+    for left, right in edges:
+        graph[left]['neighbors'].add(right)
+        graph[right]['neighbors'].add(left)
 
     return graph
 
@@ -59,10 +59,9 @@ def traverse(graph, priorities):
         visited_count += 1
 
         # update visit-able nodes
-        for neighbor_set in graph[current_node]['neighbors']:
-            for neighbor in neighbor_set:
-                if neighbor not in reachable and neighbor not in visited:
-                    reachable.put((priorities[neighbor], neighbor))
+        for neighbor in graph[current_node]['neighbors']:
+            if neighbor not in reachable and neighbor not in visited:
+                reachable.put((priorities[neighbor], neighbor))
 
         try:
             current_priority, current_node = reachable.get(False)

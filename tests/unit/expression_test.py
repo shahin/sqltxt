@@ -1,6 +1,6 @@
 import unittest
 
-from sqltxt.expression import Expression, And, Or
+from sqltxt.expression import Expression, AndList, OrList
 from sqltxt.column import ColumnName
 
 class ExpressionTest(unittest.TestCase):
@@ -15,7 +15,7 @@ class ExpressionTest(unittest.TestCase):
         self.assertEqual(expected_column_names, expr.column_names)
 
     def test_condition_column_names(self):
-        boolean_condition = And([
+        boolean_condition = AndList([
             Expression('a.a', '==', 'b.b'),
             Expression('a.a', '==', '1'),
             Expression('1', '==', 'c.c'),
@@ -24,11 +24,11 @@ class ExpressionTest(unittest.TestCase):
         expected_column_names = set([
             ColumnName('a.a'), ColumnName('b.b'), ColumnName('c.c'), ColumnName('d.d')
         ])
-        self.assertEqual(expected_column_names, boolean_condition.column_names())
+        self.assertEqual(expected_column_names, boolean_condition.column_names)
 
     def test_nested_condition_column_names(self):
-        boolean_condition = And([
-            Or([
+        boolean_condition = AndList([
+            OrList([
                 Expression('a.a', '==', 'b.b'),
                 Expression('a.a', '==', '1'),
             ]),
@@ -38,10 +38,10 @@ class ExpressionTest(unittest.TestCase):
         expected_column_names = set([
             ColumnName('a.a'), ColumnName('b.b'), ColumnName('c.c'), ColumnName('d.d')
         ])
-        self.assertEqual(expected_column_names, boolean_condition.column_names())
+        self.assertEqual(expected_column_names, boolean_condition.column_names)
     
-        boolean_condition = And([
-            Or([
+        boolean_condition = AndList([
+            OrList([
                 Expression('a.a', '==', 'b.b'),
                 Expression('1', '==', 'c.c'),
             ]),
@@ -51,4 +51,4 @@ class ExpressionTest(unittest.TestCase):
         expected_column_names = set([
             ColumnName('a.a'), ColumnName('b.b'), ColumnName('c.c'), ColumnName('d.d')
         ])
-        self.assertEqual(expected_column_names, boolean_condition.column_names())
+        self.assertEqual(expected_column_names, boolean_condition.column_names)

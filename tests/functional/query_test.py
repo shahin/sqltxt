@@ -165,9 +165,7 @@ class QueryTest(unittest.TestCase):
                 {'path': 'table_a.txt', 'alias': 'table_a.txt'},
                 {'path': 'table_b.txt', 'alias': 'table_b.txt'}
             ],
-            conditions=[
-                ['table_a.txt.col_a', '==', 'table_b.txt.col_a'],
-            ],
+            conditions=[ ['table_a.txt.col_a', '==', 'table_b.txt.col_a'], ],
             columns=['table_a.txt.col_a', 'col_b', 'col_z']
         )
         t = query.execute()
@@ -183,9 +181,7 @@ class QueryTest(unittest.TestCase):
                 {'path': 'table_a.txt', 'alias': 'table_a.txt'},
                 {'path': 'table_b.txt', 'alias': 'table_b.txt'}
             ],
-            conditions=[
-                ['table_a.txt.col_a', '==', 'table_b.txt.col_a'],
-            ],
+            conditions=[ ['table_a.txt.col_a', '==', 'table_b.txt.col_a'], ],
             columns=['table_a.txt.col_a', 'col_b', 'col_z']
         )
 
@@ -208,9 +204,7 @@ class QueryTest(unittest.TestCase):
                 {'path': 'table_a.txt', 'alias': 'table_a.txt'},
                 {'path': 'table_b.txt', 'alias': 'table_b.txt'}
             ],
-            conditions=[
-                ['table_a.txt.col_b', '==', 'table_b.txt.col_a'],
-            ],
+            conditions=[ ['table_a.txt.col_b', '==', 'table_b.txt.col_a'], ],
             columns=['col_b', 'table_b.txt.col_a', 'col_z']
         )
         table_actual = query.execute()

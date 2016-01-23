@@ -169,7 +169,7 @@ def stringify_conditions(conditions):
         else:
             try:
                 operator = '==' if c['operator'] == '=' else c['operator']
-                stringified.append(' '.join([c['left_operand'], operator, c['right_operand']]))
+                stringified.append(' '.join([str(c['left_operand']), operator, str(c['right_operand'])]))
             except TypeError:
                 stringified.extend(['(' + stringify_conditions(c) + ')'])
 

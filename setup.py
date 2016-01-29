@@ -6,7 +6,8 @@ setup(
     install_requires=[
         'pyparsing',
         'ordered-set',
-        'docopt'
+        'docopt',
+        'sympy',
     ],
     entry_points={
         'console_scripts': [

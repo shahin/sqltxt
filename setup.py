@@ -13,4 +13,7 @@ setup(
             'sqltxt = sqltxt.__main__:main'
         ]
     },
+    extras_require={
+        'test': ['pytest'],
+    },
 )

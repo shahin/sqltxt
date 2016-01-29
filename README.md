@@ -1,4 +1,4 @@
-# sqltxt
+# sqltxt [![Build Status](https://travis-ci.org/shahin/sqltxt.svg?branch=master)](https://travis-ci.org/shahin/sqltxt)
 A SQL-to-coreutils intepreter for text data munging, written in Python.
 
 ## Overview

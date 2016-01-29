@@ -1,0 +1,5 @@
+city,state
+sacramento,ca
+st. louis,mo
+sunnyvale,ca
+sunnyvale,ca

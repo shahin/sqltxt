@@ -1,5 +1,5 @@
 # sqltxt [![Build Status](https://travis-ci.org/shahin/sqltxt.svg?branch=master)](https://travis-ci.org/shahin/sqltxt)
-A SQL-to-coreutils intepreter for text data munging, written in Python.
+A SQL-to-coreutils interpreter for text data munging, written in Python.
 
 ## Overview
 sqltxt will parse a (*very* limited) subset of SQL and translate it into functionally equivalent coreutils and awk calls.

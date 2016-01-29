@@ -246,7 +246,7 @@ class Table(object):
         cmds = self.cmds
 
         if self.offset:
-            cmds = ['tail -n {0} {1}'.format(self.offset+1, self.name)] + cmds 
+            cmds = ['tail -n+{0} {1}'.format(self.offset+1, self.name)] + cmds 
 
         cmd_str = ' | '.join(cmds)
 

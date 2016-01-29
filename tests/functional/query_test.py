@@ -12,25 +12,25 @@ class QueryTest(unittest.TestCase):
 
         # TODO: replace this hack to make sure test files are found with fixtures
         if 'tests/data' not in os.getcwd():
-          os.chdir(os.path.join(os.getcwd(), 'tests/data'))
+            os.chdir(os.path.join(os.getcwd(), 'tests/data'))
 
         table_header = ["col_a", "col_b"]
         table_contents = """1,1\n2,3\n3,2"""
 
         self.table_a = Table.from_cmd(
-          name = 'table_a', 
-          cmd = 'echo -e "{0}"'.format(table_contents), 
-          columns = table_header
-          )
+            name = 'table_a', 
+            cmd = 'echo -e "{0}"'.format(table_contents), 
+            columns = table_header
+        )
 
         table_header = ["col_a", "col_z"]
         table_contents = """1,w\n2,x\n2,y\n5,z"""
 
         self.table_b = Table.from_cmd(
-          name = 'table_b', 
-          cmd = 'echo -e "{0}"'.format(table_contents), 
-          columns = table_header
-          )
+            name = 'table_b', 
+            cmd = 'echo -e "{0}"'.format(table_contents), 
+            columns = table_header
+        )
 
     def test_condition_applies(self):
 
@@ -211,7 +211,7 @@ class QueryTest(unittest.TestCase):
         cmd_actual = table_actual.get_cmd_str(output_column_names=True)
         cmd_expected = \
           'echo "col_b,col_a,col_z"; ' + \
-          "join -t, -1 2 -2 1 <(tail +2 table_a.txt | sort -t, -k 2,2) <(tail +2 table_b.txt | sort -t, -k 1,1) | awk -F\',\' \'OFS=\",\" { print $1,$1,$3 }\'"
+          "join -t, -1 2 -2 1 <(tail -n+2 table_a.txt | sort -t, -k 2,2) <(tail -n+2 table_b.txt | sort -t, -k 1,1) | awk -F\',\' \'OFS=\",\" { print $1,$1,$3 }\'"
         assert cmd_actual == cmd_expected
         
         table_actual_out = subprocess.check_output(['/bin/bash', '-c', cmd_actual])

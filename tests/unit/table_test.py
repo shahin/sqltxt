@@ -115,7 +115,7 @@ class TableTest(unittest.TestCase):
 
         # output from a file-backed Table to STDOUT
         cmd_actual = table_from_file.get_cmd_str()
-        cmd_expected = 'tail +2 {}/table_a.txt'.format(self.data_path)
+        cmd_expected = 'tail -n+2 {}/table_a.txt'.format(self.data_path)
         self.assertEqual(cmd_actual, cmd_expected)
 
         table_from_cmd = Table.from_cmd(

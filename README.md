@@ -37,4 +37,4 @@ col_a,col_z
 2,y
 ```
 
-See more examples in the [functional tests](tests/functional/sqltxt.py).
+See more examples in the [functional tests](/tests/functional/sqltxt_test.py).

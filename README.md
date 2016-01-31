@@ -35,3 +35,6 @@ col_a,col_z
 1,w
 2,x
 2,y
+```
+
+See more examples in the [functional tests](tests/functional/sqltxt.py).

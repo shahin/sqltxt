@@ -1,7 +1,6 @@
 import unittest
 import os
 import subprocess
-from sqltxt.column import Column, ColumnName, AmbiguousColumnNameError
 
 class SqltxtTest(unittest.TestCase):
         

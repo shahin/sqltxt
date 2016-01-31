@@ -40,10 +40,11 @@ def main():
     result = query.execute()
     result_str = result.get_cmd_str(output_column_names=True)
  
-    print(result_str)
-
     if execute:
-        subprocess.call([result_str], shell=True)
+        # explicitly use bash instead of the default for subprocess(..., shell=True) which is sh
+        result_str = subprocess.check_output(['/bin/bash', '-c', result_str])
+
+    print(result_str)
 
 
 if __name__ == '__main__':

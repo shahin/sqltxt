@@ -168,19 +168,25 @@ class Query(object):
         self.tables = [self.tables[idx] for idx in join_order]
 
         # determine where in the join tree to apply conditions
-        where_condition_order = stage_conditions(self.tables, self.where_conditions)
-        join_condition_order = stage_conditions(self.tables, self.join_conditions)
+        where_condition_stages = stage_conditions(self.tables, self.where_conditions)
+        join_condition_stages = stage_conditions(self.tables, self.join_conditions)
+
+        # use only one join condition per stage
+        for stage, conditions in enumerate(join_condition_stages):
+            if len(conditions) > 0:
+                where_condition_stages[stage].extend(conditions[1:])
+                join_condition_stages[stage] = [conditions[0]]
 
         # apply single-table where conditions to source tables
         multi_table_conditions =[ [] for i in range(len(self.where_conditions)) ]
-        for table, conditions in zip(self.tables, where_condition_order):
+        for table, conditions in zip(self.tables, where_condition_stages):
             single_table_conditions = [c for c in conditions if condition_applies(c, table)]
             table.subset_rows(single_table_conditions)
             multi_table_conditions.append(list(set(conditions) - set(single_table_conditions)))
 
         # build the join tree in which nodes are intermediate Tables resulting from joins
         if len(self.tables) > 1:
-            result = join(self.tables, join_condition_order, multi_table_conditions)
+            result = join(self.tables, join_condition_stages, multi_table_conditions)
         else:
             result = self.tables[0]
 

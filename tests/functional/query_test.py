@@ -219,6 +219,31 @@ class QueryTest(unittest.TestCase):
 
         self.assertEqual(table_actual_out, table_expected_out)
 
+    def test_join_two_tables_with_multiple_join_conditions(self):
+        
+        query = Query(
+            [
+                {'path': 'table_a.txt', 'alias': 'table_a.txt'},
+                {'path': 'table_d.txt', 'alias': 'table_d.txt'}
+            ],
+            conditions=[
+                ['table_a.txt.col_a', '==', 'table_d.txt.col_a'],
+                ['table_a.txt.col_b', '==', 'table_d.txt.col_b'],
+            ],
+            columns=['table_a.txt.col_b', 'table_a.txt.col_a', 'col_x']
+        )
+        table_actual = query.execute()
+        cmd_actual = table_actual.get_cmd_str(output_column_names=True)
+        cmd_expected = \
+          'echo "col_b,col_a,col_x"; ' + \
+          "join -t, -1 1 -2 1 <(tail -n+2 table_d.txt | sort -t, -k 1,1) <(tail -n+2 table_a.txt | sort -t, -k 1,1) | awk -F\',\' \'OFS=\",\" { if ($4 == $2) { print $1,$2,$3,$4 } }\' | awk -F\',\' \'OFS=\",\" { print $4,$1,$3 }\'"
+        assert cmd_actual == cmd_expected
+        
+        table_actual_out = subprocess.check_output(['/bin/bash', '-c', cmd_actual])
+        table_expected_out = subprocess.check_output(['/bin/bash', '-c', cmd_expected])
+
+        self.assertEqual(table_actual_out, table_expected_out)
+
     @unittest.skip('wildcards not supported')
     def test_wildcard_selects_all_columns(self):
         

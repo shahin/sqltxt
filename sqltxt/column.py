@@ -4,6 +4,9 @@ import re
 
 VALID_IDENTIFIER_REGEX = '^[a-zA-Z_][a-zA-Z0-9_.]*$'
 
+def is_valid_identifier(identifier):
+    return re.match(VALID_IDENTIFIER_REGEX, identifier)
+
 
 class AmbiguousColumnNameError(Exception):
     def __init__(self, column_name, matched_columns):
@@ -22,10 +25,6 @@ class InvalidColumnNameError(Exception):
     def __init__(self, column_name):
         message = 'Invalid column name {0}'.format(column_name)
         super(self.__class__, self).__init__(message)
-
-
-def is_valid_identifier(identifier):
-    return re.match(VALID_IDENTIFIER_REGEX, identifier)
 
 
 class Column(object):

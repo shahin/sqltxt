@@ -1,5 +1,5 @@
 import unittest
-from sqltxt.sql_tokenizer import select_stmt
+from sqltxt.sql_tokenizer import select_stmt, parse
 
 class SqlTokenizerTest(unittest.TestCase):
 
@@ -68,13 +68,59 @@ class SqlTokenizerTest(unittest.TestCase):
         self.assertEqual(parsed.from_clause.joins[0][1].join_type, 'left')
 
     def test_parse_from_list_with_joins_to_get_join_conditions(self):
-        parsed = select_stmt.parseString('''
-            select col1
-            from table1 join table2 on (table1.col1 = table2.col1)
+
+        parsed = parse('''
+            select cola
+            from table1 join table2 on (table1.cola = table2.cola)
         ''')
-        pass
+        self.assertEqual(parsed.from_clause[1]['join_conditions'][0], {
+            'left_operand': 'table1.cola',
+            'operator': '=',
+            'right_operand': 'table2.cola',
+        })
+
+        parsed = parse('''
+            select cola
+            from
+                table1
+                join table2 on (table1.cola = table2.cola)
+                join table3 t3 on (table1.colb = t3.colb)
+        ''')
+        self.assertEqual(parsed.from_clause[2]['join_conditions'][0], {
+            'left_operand': 'table1.colb',
+            'operator': '=',
+            'right_operand': 't3.colb',
+        })
+
+        parsed = parse('''
+            select cola
+            from
+                table1
+                join table2 on (table1.cola = table2.cola)
+                join table3 t3 on (table1.colb = t3.colb and table2.colc = t3.colc)
+        ''')
+        self.assertEqual(parsed.from_clause[2]['join_conditions'][1], 'and')
+        self.assertEqual(parsed.from_clause[2]['join_conditions'][2], {
+            'left_operand': 'table2.colc',
+            'operator': '=',
+            'right_operand': 't3.colc',
+        })
 
     def test_parse_where_list(self):
-        pass
-
+        parsed = parse('''
+            select cola
+            from
+                table1
+                join table2 on (table1.cola = table2.cola)
+            where colb = 1 and (colc = 0 or colz = 'a')
+        ''')
+        self.assertEqual(parsed.where_clause, [
+            {'left_operand': 'colb', 'operator': '=', 'right_operand': '1'},
+            'and',
+            [
+                {'left_operand': 'colc', 'operator': '=', 'right_operand': '0'},
+                'or',
+                {'left_operand': 'colz', 'operator': '=', 'right_operand': "'a'"}
+            ],
+        ])
 

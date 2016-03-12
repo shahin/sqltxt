@@ -1,3 +1,6 @@
+"""This module contains the SQL grammar, functions for parsing a string based on the grammar, and
+functions for humanizing the parsed result."""
+
 import subprocess
 from pyparsing import (
   Forward, 
@@ -82,7 +85,7 @@ where_cond = Group(
   ( column_idr.setResultsName('left_operand') + 
     binary_op.setResultsName('operator') + 
     column_val.setResultsName('right_operand') 
-    ).setResultsName('binary_condition') |
+    ) |
   ( column_idr.setResultsName('left_operand') + 
     in_ + 
     Suppress("(") + delimitedList( column_val ).setResultsName('right_operand') + Suppress(")") 
@@ -115,13 +118,13 @@ select_stmt << (
     StringEnd()
     )
 
-def normalize_relation(relation_clause):
+def _normalize_relation(relation_clause):
     return {
         'path': relation_clause['path'],
         'alias': relation_clause.get('alias', [False])[0] or relation_clause['path']
     }
 
-def normalize_condition(condition_clause):
+def _normalize_condition(condition_clause):
     normalized_clause = []
 
     for idx in range(0, len(condition_clause.asList())):
@@ -136,32 +139,55 @@ def normalize_condition(condition_clause):
             r = condition_part.asDict()
         elif len(condition_part.asDict()) == 0:
             # this is dictionaryable but not itself an atomic cond, so normalize it
-            r = normalize_condition(condition_part)
+            r = _normalize_condition(condition_part)
 
         normalized_clause.append(r)
     return normalized_clause
 
-def normalize_from_clause(from_clause):
-    normalized = [{'relation': normalize_relation(from_clause['relation'])}]
+def _normalize_from_clause(from_clause):
+    normalized = [{'relation': _normalize_relation(from_clause['relation'])}]
 
     if 'joins' in from_clause:
         for join_clause in from_clause['joins'][0]:
 
             normalized_join = {}
-            normalized_join['relation'] = normalize_relation(join_clause['relation'])
+            normalized_join['relation'] = _normalize_relation(join_clause['relation'])
 
-            normalized_join['join_conditions'] = normalize_condition(join_clause['join_conditions'])
+            normalized_join['join_conditions'] = _normalize_condition(join_clause['join_conditions'])
             normalized.append(normalized_join) 
     
     return normalized
 
-def normalize_where_clause(where_clause):
-    if not where_clause:
-        return []
-    else:
-        return normalize_condition(where_clause)
+def _normalize_where_clause(where_clause):
+    return _normalize_condition(where_clause) if where_clause else []
+
+def parse(sql_string):
+    """Given a string containing SQL, parse it and return the normalized result."""
+    parsed = select_stmt.parseString(sql_string)
+    parsed.from_clause = _normalize_from_clause(parsed.from_clause)
+    parsed.where_clause = _normalize_where_clause(parsed.where_clause)
+    return parsed
+
+def get_relations_and_conditions(parsed_sql):
+    """Given normalized parsed SQL, return a list of relations and list of conditions including all
+    join- and where-conditions.
+    """
+
+    relations = [subclause['relation'] for subclause in parsed_sql.from_clause]
+    conditions = [
+        subclause['join_conditions'] for subclause in parsed_sql.from_clause
+        if 'join_conditions' in subclause
+    ]
+    conjunctions = ['and'] * len(conditions)
+    conditions = [ part for parts in zip(conditions, conjunctions) for part in parts ][:-1]
+    conditions.extend(parsed_sql.where_clause)
+
+    return relations, conditions
 
 def stringify_conditions(conditions):
+    """Given a list of condition dictionaries with 'left_operand', 'operand', and 'right_operand'
+    keys, return a list of strings expressing equivalent conditions in valid Python."""
+
     stringified = []
     for c in conditions:
         if isinstance(c, basestring):
@@ -174,24 +200,3 @@ def stringify_conditions(conditions):
                 stringified.extend(['(' + stringify_conditions(c) + ')'])
 
     return ' '.join(stringified)
-
-def parse(sql_string):
-    parsed = select_stmt.parseString(sql_string)
-    parsed.from_clause = normalize_from_clause(parsed.from_clause)
-    parsed.where_clause = normalize_where_clause(parsed.where_clause)
-    return parsed
-
-def get_relations_and_conditions(parsed_sql):
-    """Given parsed SQL, return a list of relations and list of conditions including all join-
-    and where-conditions.
-    """
-    relations = [subclause['relation'] for subclause in parsed_sql.from_clause]
-    conditions = [
-        subclause['join_conditions'] for subclause in parsed_sql.from_clause
-        if 'join_conditions' in subclause
-    ]
-    conjunctions = ['and'] * len(conditions)
-    conditions = [ part for parts in zip(conditions, conjunctions) for part in parts ][:-1]
-    conditions.extend(parsed_sql.where_clause)
-
-    return relations, conditions

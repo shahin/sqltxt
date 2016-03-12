@@ -124,3 +124,21 @@ class SqlTokenizerTest(unittest.TestCase):
             ],
         ])
 
+    def test_parse_tablesample_clause(self):
+        parsed = parse('''
+            select cola
+            from table1
+            tablesample (5 rows)
+        ''')
+        self.assertEqual(parsed.tablesample_clause.asDict(), {'sample_size': 5})
+
+        parsed = parse('''
+            select cola
+            from
+                table1
+                join table2 on (table1.cola = table2.cola)
+            where colb = 1 and (colc = 0 or colz = 'a')
+            tablesample (50 rows)
+        ''')
+        self.assertEqual(parsed.tablesample_clause.asDict(), {'sample_size': 50})
+

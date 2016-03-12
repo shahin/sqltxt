@@ -11,7 +11,6 @@ from pyparsing import (
   MatchFirst,
 
   delimitedList,
-  Upcase,
   oneOf,
   ZeroOrMore,
   Combine,

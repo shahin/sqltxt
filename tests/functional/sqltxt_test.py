@@ -47,7 +47,7 @@ class SqltxtTest(unittest.TestCase):
         expected_output = """col_a,col_z\n2,x\n2,y\n\n"""
         self.assertEqual(expected_output, actual_output)
 
-    def test_rows_are_sampled(self):
+    def test_rows_are_sampled_for_sample_size_one(self):
 
         cmd = "sqltxt -e --random-seed=100 'select ta.col_a, col_z from tests/data/table_a.txt ta join tests/data/table_b.txt tb on (ta.col_a = tb.col_a) tablesample (1)'"
         actual_output = subprocess.check_output(['/bin/bash', '-c', cmd])
@@ -64,7 +64,14 @@ class SqltxtTest(unittest.TestCase):
         expected_output = """col_a,col_z\n1,w\n\n"""
         self.assertEqual(expected_output, actual_output)
 
+    def test_rows_are_sampled_for_sample_size_more_than_one(self):
+
         cmd = "sqltxt -e --random-seed=101 'select ta.col_a, col_z from tests/data/table_a.txt ta join tests/data/table_b.txt tb on (ta.col_a = tb.col_a) tablesample (2)'"
         actual_output = subprocess.check_output(['/bin/bash', '-c', cmd])
-        expected_output = """col_a,col_z\n2,x\n1,w\n\n"""
+        expected_output_for_awk = {
+            'GAWK': """col_a,col_z\n1,w\n2,y\n\n""",
+            'AWK': """col_a,col_z\n2,x\n1,w\n\n""",
+        }
+        awk_version = get_awk_version() or 'AWK'
+        expected_output = expected_output_for_awk[awk_version]
         self.assertEqual(expected_output, actual_output)

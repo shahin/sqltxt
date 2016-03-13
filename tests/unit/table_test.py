@@ -109,6 +109,18 @@ class TableTest(unittest.TestCase):
         with self.assertRaisesRegexp(AmbiguousColumnNameError, 'Ambiguous column reference'):
             table_from_cmd.get_column_for_name(ColumnName('col_a'))
 
+    def test_sample_rows(self):
+        self.table_a.sample_rows(1)
+        cmds_actual = self.table_a.cmds
+        cmds_expected = ['echo -e "1,1\n2,3\n3,2"',
+        """awk -v seed=$RANDOM -v n={0} '
+            BEGIN {{ srand(seed) }}
+            NR <= n {{ reservoir[NR] = $0 }}
+            NR > n {{ M = int(rand() * NR) + 1; if (M <= n) {{ reservoir[M] = $0 }}}}
+            END {{ for (key in reservoir) {{ print reservoir[key] }}}}'""".format(1)
+        ]
+        self.assertEqual(cmds_actual, cmds_expected)
+
     def test_get_cmd_str(self):
 
         table_from_file = Table.from_file_path(os.path.join(self.data_path, 'table_a.txt'))

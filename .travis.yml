@@ -2,4 +2,6 @@ language: python
 python:
     - "2.7"
 install: "pip install -e .[test]"
-script: py.test
+script:
+  - awk --version
+  - py.test

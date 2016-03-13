@@ -13,6 +13,7 @@ from pyparsing import (
   delimitedList,
   oneOf,
   ZeroOrMore,
+  OneOrMore,
   Combine,
   Optional,
   StringEnd,
@@ -29,9 +30,9 @@ from pyparsing import (
 # keywords
 (UNION, ALL, AND, INTERSECT, EXCEPT, COLLATE, ASC, DESC, ON, USING, NATURAL, INNER, 
  CROSS, RIGHT, LEFT, OUTER, JOIN, AS, INDEXED, NOT, SELECT, DISTINCT, FROM, WHERE, GROUP, BY,
- HAVING, ORDER, BY, LIMIT, OFFSET) =  map(CaselessKeyword, """UNION, ALL, AND, INTERSECT, 
+ HAVING, ORDER, BY, LIMIT, OFFSET, TABLESAMPLE) =  map(CaselessKeyword, """UNION, ALL, AND, INTERSECT, 
  EXCEPT, COLLATE, ASC, DESC, ON, USING, NATURAL, INNER, CROSS, RIGHT, LEFT, OUTER, JOIN, AS, INDEXED, NOT, SELECT, 
- DISTINCT, FROM, WHERE, GROUP, BY, HAVING, ORDER, BY, LIMIT, OFFSET""".replace(",","").split())
+ DISTINCT, FROM, WHERE, GROUP, BY, HAVING, ORDER, BY, LIMIT, OFFSET, TABLESAMPLE""".replace(",","").split())
 (CAST, ISNULL, NOTNULL, NULL, IS, BETWEEN, ELSE, END, CASE, WHEN, THEN, EXISTS,
  COLLATE, IN, LIKE, GLOB, REGEXP, MATCH, ESCAPE, CURRENT_TIME, CURRENT_DATE, 
  CURRENT_TIMESTAMP) = map(CaselessKeyword, """CAST, ISNULL, NOTNULL, NULL, IS, BETWEEN, ELSE, 
@@ -41,7 +42,7 @@ keyword = MatchFirst((UNION, ALL, INTERSECT, EXCEPT, COLLATE, ASC, DESC, ON, USI
  CROSS, RIGHT, LEFT, OUTER, JOIN, AS, INDEXED, NOT, SELECT, DISTINCT, FROM, WHERE, GROUP, BY,
  HAVING, ORDER, BY, LIMIT, OFFSET, CAST, ISNULL, NOTNULL, NULL, IS, BETWEEN, ELSE, END, CASE, WHEN, THEN, EXISTS,
  COLLATE, IN, LIKE, GLOB, REGEXP, MATCH, ESCAPE, CURRENT_TIME, CURRENT_DATE, 
- CURRENT_TIMESTAMP))
+ CURRENT_TIMESTAMP, TABLESAMPLE))
 
 select_tok = Keyword('select', caseless=True)
 from_tok = Keyword('from', caseless=True) 
@@ -108,12 +109,18 @@ from_clause = table_idr.setResultsName('relation') + ZeroOrMore(Group(
     join + table_idr.setResultsName('relation') + on_ + where_cond.setResultsName('join_conditions') 
   )).setResultsName('joins', listAllMatches=True)
 
+tablesample_clause = CaselessLiteral("tablesample") + \
+        Suppress("(") + \
+        Word(nums).setResultsName('sample_size').setParseAction(lambda s, loc, tok: int(tok[0])) + \
+        Suppress(")")
+
 select_stmt << (
     select_tok + 
     ( column_list ).setResultsName('column_definitions') +
     from_tok +
     from_clause.setResultsName('from_clause') +
     Optional( CaselessLiteral("where") + where_expr.setResultsName("where_clause") ) +
+    Optional( tablesample_clause ).setResultsName("tablesample_clause") +
     StringEnd()
     )
 

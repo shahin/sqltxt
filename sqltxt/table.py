@@ -279,3 +279,15 @@ class Table(object):
             raise AmbiguousColumnNameError(column_name, matched_columns)
         else:
             return matched_columns[0]
+
+    def sample_rows(self, sample_size, random_seed=None):
+        sample_cmd = """awk -v seed={0} -v n={1} '
+            BEGIN {{ srand(seed) }}
+            NR <= n {{ reservoir[NR] = $0 }}
+            NR > n {{ M = int(rand() * NR) + 1; if (M <= n) {{ reservoir[M] = $0 }}}}
+            END {{ for (key in reservoir) {{ print reservoir[key] }}}}'""".format(
+                random_seed if random_seed is not None else '$RANDOM',
+                sample_size
+            )
+        self.cmds.append(sample_cmd)
+

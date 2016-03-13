@@ -12,7 +12,7 @@ def get_awk_version():
     elif re.compile('GNU Awk').match(awk_version_str):
         awk_version = 'GAWK'
     else:
-        warnings.warn("Unrecognized awk version: {}".format(awk_version))
+        warnings.warn("Unrecognized awk version: {}".format(awk_version_str))
     return awk_version
 
 class SqltxtTest(unittest.TestCase):

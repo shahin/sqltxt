@@ -28,6 +28,9 @@ class InvalidColumnNameError(Exception):
 
 
 class Column(object):
+    """A Column represents a column of data in a table. It manages the set of ColumnNames that can
+    be used to refer to it, and the alias that should be printed as its name in a table header
+    on output."""
 
     def __init__(self, name, qualifiers=None):
         self.names = [ColumnName(name, qualifiers)]
@@ -47,6 +50,8 @@ class Column(object):
         self.names.append(ColumnName(name, qualifiers))
 
     def match(self, *right_columns):
+        """Given one or more Columns "on the right" to match against this Column, return the subset
+        of those columns that match this Column on at least one name."""
         matches = []
         for left_name in self.names:
             for col in right_columns:

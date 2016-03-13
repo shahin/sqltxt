@@ -112,7 +112,6 @@ from_clause = table_idr.setResultsName('relation') + ZeroOrMore(Group(
 tablesample_clause = CaselessLiteral("tablesample") + \
         Suppress("(") + \
         Word(nums).setResultsName('sample_size').setParseAction(lambda s, loc, tok: int(tok[0])) + \
-        CaselessLiteral('rows') + \
         Suppress(")")
 
 select_stmt << (

@@ -12,8 +12,8 @@ import logging
 LOG = logging.getLogger(__name__)
 
 def stage_columns(tables, column_names):
-    """Given a list of tables and a list of ColumnNames, return a list of ColumnNames with each at
-    the index of the first table (from left to right) that it's available on.
+    """Given a list of tables and a list of ColumnNames, return a list of lists of ColumnNames with
+    each ColumnName at the index of the first table (from left to right) that it's available on.
 
     Raises AmbiguousColumnNameError if a ColumnName is available on more than one table. Raises
     UnknownColumnNameError if the column name can't be found on any of the given tables.
@@ -119,19 +119,24 @@ def map_aliases(relations):
 class Query(object):
     """Create Tables and perform operations on them."""
 
-    def __init__(self, relations, conditions=None, columns = None, is_top_level = True):
-        self.is_top_level = is_top_level  # not a subquery
+    def __init__(self, relations, conditions=None, columns=None,
+            sample_size=None, random_seed=None, is_top_level=True):
+
+        self.relations = relations
+        self.table_aliases = map_aliases(relations)
 
         self.column_names = OrderedSet([
             ColumnName(c) if not isinstance(c, ColumnName) else c for c in columns
         ])
-        self.table_aliases = map_aliases(relations)
-        self.relations = relations
 
         if conditions is None:
             conditions = []
         self.join_conditions, self.where_conditions = classify_conditions(conditions)
         self.conditions = self.join_conditions + self.where_conditions
+
+        self.sample_size = sample_size
+        self.random_seed = random_seed
+        self.is_top_level = is_top_level  # not a subquery
 
     @staticmethod
     def _replace_column_wildcards(column_list, replacement_columns):
@@ -191,4 +196,8 @@ class Query(object):
             result = self.tables[0]
 
         result.order_columns(self.column_names, True)
+
+        if self.sample_size is not None:
+            result.sample_rows(self.sample_size, self.random_seed)
+
         return result

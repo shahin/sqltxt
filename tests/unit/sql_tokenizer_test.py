@@ -128,7 +128,7 @@ class SqlTokenizerTest(unittest.TestCase):
         parsed = parse('''
             select cola
             from table1
-            tablesample (5 rows)
+            tablesample (5)
         ''')
         self.assertEqual(parsed.tablesample_clause.asDict(), {'sample_size': 5})
 
@@ -138,7 +138,7 @@ class SqlTokenizerTest(unittest.TestCase):
                 table1
                 join table2 on (table1.cola = table2.cola)
             where colb = 1 and (colc = 0 or colz = 'a')
-            tablesample (50 rows)
+            tablesample (50)
         ''')
         self.assertEqual(parsed.tablesample_clause.asDict(), {'sample_size': 50})
 

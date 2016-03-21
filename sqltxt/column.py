@@ -28,9 +28,10 @@ class InvalidColumnNameError(Exception):
 
 
 class Column(object):
-    """A Column represents a column of data in a table. It manages the set of ColumnNames that can
-    be used to refer to it, and the alias that should be printed as its name in a table header
-    on output."""
+    """A Column instance represents a column of data in a table. It manages the list of ColumnNames
+    that refer to it.
+    
+    Only one of these ColumnNames is used on output. This is called the Column's alias."""
 
     def __init__(self, name, qualifiers=None):
         self.names = [ColumnName(name, qualifiers)]
@@ -42,6 +43,7 @@ class Column(object):
 
     @alias.setter
     def alias(self, column_name):
+        """The alias is the ColumnName that should be used on output."""
         if not(column_name.match(*self.names)):
             self.add_name(column_name)
         self._alias = column_name
@@ -70,6 +72,9 @@ class Column(object):
 
 
 class ColumnName(object):
+    """A ColumnName is a string naming the Column and optionally a set of qualifiers.
+    
+    In SQL, ColumnName qualifiers are usually table names or table aliases."""
 
     def __init__(self, name, qualifiers=None):
         self.original_token = name
@@ -132,6 +137,9 @@ class ColumnName(object):
         return '<ColumnName ' + '.'.join([qualifiers_to_str(self.qualifiers), self.name]) + '>'
 
     def match(self, *right_column_names):
+        """Given a list of ColumnNames, return a list of those that match this ColumName.
+
+        This operation is not commutative. That is, A.match(B) =/=> B.match(A)."""
         return [col for col in right_column_names if self >= col]
 
 def qualifiers_to_str(qualifiers):

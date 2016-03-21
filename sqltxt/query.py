@@ -37,7 +37,7 @@ def stage_columns(tables, column_names):
 
 def stage_conditions(tables, conditions):
     """Given a list of tables and a list of conditions, return a list of conditions with each at
-    the index of the first table (from left to right) that it's available on.
+    the index of the first table (from left to right) that it can be applied to.
     """
     condition_order = [ [] for i in range(len(tables)) ]
     for condition in conditions:

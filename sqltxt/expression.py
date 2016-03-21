@@ -1,4 +1,3 @@
-from ordered_set import OrderedSet
 import collections
 import re
 
@@ -34,6 +33,8 @@ class ConditionParser(ast.NodeVisitor):
         super(self.__class__, self).__init__(*args, **kwargs)
 
     def visit_BoolOp(self, node):
+        """Given a BoolOp node in the AST, translate it to a SymPy operator, stash it
+        in a dictionary with its arguments and append the dictionary to the stack."""
         boolean_op = self.boolean_ops_map[node.op.__class__]
 
         self.ops_stack.append({'op': boolean_op, 'args': []})

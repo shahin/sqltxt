@@ -11,9 +11,9 @@ class PlanTest(unittest.TestCase):
     def test_classify_conditions(self):
         aliases = { 'a': 'a', 'alpha': 'a', 'b': 'b', 'c': 'c' }
         conditions = [
-            { 'left_operand': 'a.col1', 'operator': '=', 'right_operand': 'b.col1' },
-            { 'left_operand': 'a.col1', 'operator': '=', 'right_operand': 5 },
-            { 'left_operand': 'a.col1', 'operator': '=', 'right_operand': 'c.col1' },
+            { 'left_operand': 'a.col1', 'operator': '=', 'right_operand': 'b.col1' }, 'and',
+            { 'left_operand': 'a.col1', 'operator': '=', 'right_operand': 5 }, 'and',
+            { 'left_operand': 'a.col1', 'operator': '=', 'right_operand': 'c.col1' }, 'and',
             { 'left_operand': 'a.col1', 'operator': '=', 'right_operand': 'a.col2' },
         ]
 

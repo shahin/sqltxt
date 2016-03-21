@@ -143,7 +143,7 @@ class QueryTest(unittest.TestCase):
 
         query = Query(
             [{'path': 'table_a.txt', 'alias': 'table_a.txt'}],
-            conditions=[['col_b', '<', '3']],
+            conditions=[['col_b', '<', '3'], 'or', ['col_b', '<', '3']],
             columns=['col_a']
         )
         table_actual = query.execute()
@@ -227,7 +227,7 @@ class QueryTest(unittest.TestCase):
                 {'path': 'table_d.txt', 'alias': 'table_d.txt'}
             ],
             conditions=[
-                ['table_a.txt.col_a', '==', 'table_d.txt.col_a'],
+                ['table_a.txt.col_a', '==', 'table_d.txt.col_a'], 'and',
                 ['table_a.txt.col_b', '==', 'table_d.txt.col_b'],
             ],
             columns=['table_a.txt.col_b', 'table_a.txt.col_a', 'col_x']

@@ -184,25 +184,9 @@ def get_relations_and_conditions(parsed_sql):
         subclause['join_conditions'] for subclause in parsed_sql.from_clause
         if 'join_conditions' in subclause
     ]
+    conditions.extend(parsed_sql.where_clause)
     conjunctions = ['and'] * len(conditions)
     conditions = [ part for parts in zip(conditions, conjunctions) for part in parts ][:-1]
-    conditions.extend(parsed_sql.where_clause)
 
     return relations, conditions
 
-def stringify_conditions(conditions):
-    """Given a list of condition dictionaries with 'left_operand', 'operand', and 'right_operand'
-    keys, return a list of strings expressing equivalent conditions in valid Python."""
-
-    stringified = []
-    for c in conditions:
-        if isinstance(c, basestring):
-            stringified.append(c)
-        else:
-            try:
-                operator = '==' if c['operator'] == '=' else c['operator']
-                stringified.append(' '.join([str(c['left_operand']), operator, str(c['right_operand'])]))
-            except TypeError:
-                stringified.extend(['(' + stringify_conditions(c) + ')'])
-
-    return ' '.join(stringified)

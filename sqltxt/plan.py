@@ -2,11 +2,11 @@ import itertools
 from sqltxt.column import ColumnName
 from sqltxt.util import PriorityContainer, Queue
 
-def plan(relations, join_conditions, where_conditions):
-    """Given a list of relations and a list of conditions across those relations, return a list
+def plan(tables, join_conditions, where_conditions):
+    """Given a list of tables and a list of conditions across those tables, return a list
     of relation indices in an optimized join order."""
 
-    graph = build_graph(relations, join_conditions)
+    graph = build_graph(tables, join_conditions)
     priorities = prioritize_nodes(graph, where_conditions)
     node_order = traverse(graph, priorities)
 
@@ -15,12 +15,12 @@ def plan(relations, join_conditions, where_conditions):
     ]
     return ordered_indices
 
-def build_graph(relations, join_conditions):
-    """Given a list of relations and join conditions across those relations, return a graph of
-    relations (nodes) connected by join conditions (edges)."""
+def build_graph(tables, join_conditions):
+    """Given a list of tables and join conditions across those tables, return a graph of
+    tables (nodes) connected by join conditions (edges)."""
 
     graph = {}
-    for idx, relation in enumerate(relations):
+    for idx, relation in enumerate(tables):
         graph[relation.alias] = { 'idx': idx, 'neighbors': set([]) }
 
     edges = [

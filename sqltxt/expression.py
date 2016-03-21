@@ -6,10 +6,9 @@ import sympy as sp
 from sympy.logic import boolalg
 
 from column import ColumnName, InvalidColumnNameError
-from sql_tokenizer import stringify_conditions
 
-def get_cnf_conditions(conditions):
-    tree = ast.parse(stringify_conditions(conditions))
+def get_cnf_conditions(conditions_str):
+    tree = ast.parse(conditions_str)
     cp = ConditionParser()
     cp.visit(tree)
     return cp.cnf_conditions
@@ -50,17 +49,12 @@ class ConditionParser(ast.NodeVisitor):
             self.conditions = this_op['op'](*this_op['args'])
 
     def visit_Compare(self, node):
+        """Given a Compare node in the AST, translate it to a sqltxt Expression and append it to
+        the stack."""
 
         expr_operands = []
         for child_node in (node.left, node.comparators[0], ):
-            if isinstance(child_node, ast.Attribute):
-                operand = self._get_attribute_name(child_node)
-            elif isinstance(child_node, ast.Name):
-                operand = child_node.id
-            elif isinstance(child_node, ast.Str):
-                operand = '"' + child_node.s + '"'
-            else:
-                operand = child_node.n
+            operand = self._get_attribute_name(child_node)
             expr_operands.append(operand)
 
         operator = self.relational_ops_map[node.ops[0].__class__]
@@ -76,9 +70,15 @@ class ConditionParser(ast.NodeVisitor):
 
     def _get_attribute_name(self, node):
         if isinstance(node, ast.Attribute):
-            return self._get_attribute_name(node.value) + '.' + node.attr
+            name = self._get_attribute_name(node.value) + '.' + node.attr
         elif isinstance(node, ast.Name):
-            return node.id
+            name = node.id
+        elif isinstance(node, ast.Str):
+            name = '"' + node.s + '"'
+        else:
+            name = node.n
+
+        return name
 
     @property
     def cnf_conditions(self):
@@ -112,17 +112,6 @@ class ConditionParser(ast.NodeVisitor):
         else:
             return_wrapper = AndList
         return return_wrapper(expressions)
-
-
-def is_boolean_operator(term):
-    return term.lower() in ('and', 'or', )
-
-def is_relational_operator(term):
-    try:
-        normalize_relational_operator(term)
-        return True
-    except InvalidExpressionOperator:
-        return False
 
 
 def normalize_relational_operator(operator):
@@ -180,7 +169,7 @@ class Expression(object):
         if isinstance(operand, basestring):
             try:
                 return ColumnName(operand)
-            except:
+            except InvalidColumnNameError:
                 return operand
         else:
             return operand

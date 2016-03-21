@@ -6,7 +6,7 @@ from table import Table
 from joins import join_tables
 from plan import plan
 
-from expression import get_cnf_conditions, Expression
+from expression import get_cnf_conditions
 
 import logging
 LOG = logging.getLogger(__name__)
@@ -70,8 +70,7 @@ def classify_conditions(conditions):
     join_conditions = []
     where_conditions = []
 
-    conditions = [ t for p in zip(conditions, ['and'] * len(conditions)) for t in p ][:-1]
-    cnf_conditions = get_cnf_conditions(conditions)
+    cnf_conditions = get_cnf_conditions(stringify_conditions(conditions))
     for condition in cnf_conditions:
         if condition.can_join:
             join_conditions.append(condition)
@@ -79,6 +78,23 @@ def classify_conditions(conditions):
             where_conditions.append(condition)
 
     return join_conditions, where_conditions
+
+def stringify_conditions(conditions):
+    """Given a list of condition dictionaries with 'left_operand', 'operand', and 'right_operand'
+    keys, return a list of strings expressing equivalent conditions in valid Python."""
+
+    stringified = []
+    for cond in conditions:
+        if isinstance(cond, basestring):
+            stringified.append(cond)
+        else:
+            try:
+                operator = '==' if cond['operator'] == '=' else cond['operator']
+                stringified.append(' '.join([str(cond['left_operand']), operator, str(cond['right_operand'])]))
+            except TypeError:
+                stringified.extend(['(' + stringify_conditions(cond) + ')'])
+
+    return ' '.join(stringified)
 
 def join(tables, join_conditions, where_conditions):
 

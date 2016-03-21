@@ -1,3 +1,4 @@
+import sys
 import itertools
 import logging
 import re
@@ -87,7 +88,12 @@ class Table(object):
         :param delimiter: the column delimiter for this table; defaults to ','
         """
 
-        columns = columns or cls._parse_column_names(file_path, delimiter)
+        if file_path == '-':
+            columns = columns or cls._parse_column_names(sys.stdin, delimiter)
+        else:
+            with open(file_path) as f:
+                columns = columns or cls._parse_column_names(f, delimiter)
+
         alias = alias or file_path
 
         column_qualifiers = [file_path.lower(), alias.lower()]
@@ -115,12 +121,10 @@ class Table(object):
         return cls(name, delimiter, cmd, columns)
 
     @staticmethod
-    def _parse_column_names(file_path, delimiter):
+    def _parse_column_names(table_file, delimiter):
         """Return a list of column headers found in the first line of a file."""
 
-        with open(file_path) as table_file:
-            head = table_file.readline().rstrip()
-
+        head = table_file.readline().rstrip()
         return head.split(delimiter)
 
     def order_columns(self, column_names_in_order, drop_other_columns=False):
@@ -245,8 +249,13 @@ class Table(object):
 
         cmds = self.cmds
 
+        if self.name == '-':
+            data_path = ''
+        else:
+            data_path = self.name
+
         if self.offset:
-            cmds = ['tail -n+{0} {1}'.format(self.offset+1, self.name)] + cmds 
+            cmds = ['tail -n+{0} {1}'.format(self.offset+1, data_path)] + cmds 
 
         cmd_str = ' | '.join(cmds)
 

@@ -26,7 +26,7 @@ class SqltxtTest(unittest.TestCase):
     def test_executed_select(self):
         cmd = "sqltxt -e 'select col_a from tests/data/table_a.txt'"
         actual_output = subprocess.check_output(['/bin/bash', '-c', cmd])
-        expected_output = """col_a\n1\n2\n3\n\n"""
+        expected_output = """col_a\n1\n2\n3\n"""
         self.assertEqual(expected_output, actual_output)
 
     def test_where(self):
@@ -38,13 +38,13 @@ class SqltxtTest(unittest.TestCase):
     def test_executed_where(self):
         cmd = "sqltxt -e 'select col_a from tests/data/table_a.txt where col_b > 2'"
         actual_output = subprocess.check_output(['/bin/bash', '-c', cmd])
-        expected_output = """col_a\n2\n\n"""
+        expected_output = """col_a\n2\n"""
         self.assertEqual(expected_output, actual_output)
 
     def test_executed_join(self):
         cmd = "sqltxt -e 'select ta.col_a, col_z from tests/data/table_a.txt ta join tests/data/table_b.txt tb on (ta.col_a = tb.col_a) where col_b > 1'"
         actual_output = subprocess.check_output(['/bin/bash', '-c', cmd])
-        expected_output = """col_a,col_z\n2,x\n2,y\n\n"""
+        expected_output = """col_a,col_z\n2,x\n2,y\n"""
         self.assertEqual(expected_output, actual_output)
 
     def test_rows_are_sampled_for_sample_size_one(self):
@@ -52,8 +52,8 @@ class SqltxtTest(unittest.TestCase):
         cmd = "sqltxt -e --random-seed=100 'select ta.col_a, col_z from tests/data/table_a.txt ta join tests/data/table_b.txt tb on (ta.col_a = tb.col_a) tablesample (1)'"
         actual_output = subprocess.check_output(['/bin/bash', '-c', cmd])
         expected_output_for_awk = {
-            'GAWK': """col_a,col_z\n2,x\n\n""",
-            'AWK': """col_a,col_z\n2,y\n\n""",
+            'GAWK': """col_a,col_z\n2,x\n""",
+            'AWK': """col_a,col_z\n2,y\n""",
         }
         awk_version = get_awk_version() or 'AWK'
         expected_output = expected_output_for_awk[awk_version]
@@ -61,7 +61,7 @@ class SqltxtTest(unittest.TestCase):
 
         cmd = "sqltxt -e --random-seed=101 'select ta.col_a, col_z from tests/data/table_a.txt ta join tests/data/table_b.txt tb on (ta.col_a = tb.col_a) tablesample (1)'"
         actual_output = subprocess.check_output(['/bin/bash', '-c', cmd])
-        expected_output = """col_a,col_z\n1,w\n\n"""
+        expected_output = """col_a,col_z\n1,w\n"""
         self.assertEqual(expected_output, actual_output)
 
     def test_rows_are_sampled_for_sample_size_more_than_one(self):
@@ -69,8 +69,8 @@ class SqltxtTest(unittest.TestCase):
         cmd = "sqltxt -e --random-seed=101 'select ta.col_a, col_z from tests/data/table_a.txt ta join tests/data/table_b.txt tb on (ta.col_a = tb.col_a) tablesample (2)'"
         actual_output = subprocess.check_output(['/bin/bash', '-c', cmd])
         expected_output_for_awk = {
-            'GAWK': """col_a,col_z\n1,w\n2,y\n\n""",
-            'AWK': """col_a,col_z\n2,x\n1,w\n\n""",
+            'GAWK': """col_a,col_z\n1,w\n2,y\n""",
+            'AWK': """col_a,col_z\n2,x\n1,w\n""",
         }
         awk_version = get_awk_version() or 'AWK'
         expected_output = expected_output_for_awk[awk_version]

@@ -96,34 +96,6 @@ def stringify_conditions(conditions):
 
     return ' '.join(stringified)
 
-def join(tables, join_conditions, where_conditions):
-
-    if len(tables) == 2:
-        joined_table = join_tables(
-            tables[0],
-            tables[1],
-            'inner',
-            join_conditions[-1],
-        )
-    elif len(tables) > 2:
-        left_table = join(
-            tables[:-1],
-            join_conditinos[:-1],
-            where_conditions[:-1],
-        )
-
-        joined_table = join_tables(
-            left_table,
-            tables[:-1],
-            'inner',
-            join_conditions[-1]
-        )
-    else:
-        raise Exception('Need at least two tables to join but only got {}'.format(tables))
-
-    joined_table.subset_rows(where_conditions[-1])
-    return joined_table
-
 def map_aliases(relations):
     """Return a dictionary that contains each relation's alias keyed by itself and by its path."""
     aliases = dict(
@@ -207,7 +179,7 @@ class Query(object):
 
         # build the join tree in which nodes are intermediate Tables resulting from joins
         if len(self.tables) > 1:
-            result = join(self.tables, join_condition_stages, multi_table_conditions)
+            result = self.execute_join(self.tables, join_condition_stages, multi_table_conditions)
         else:
             result = self.tables[0]
 
@@ -217,3 +189,36 @@ class Query(object):
             result.sample_rows(self.sample_size, self.random_seed)
 
         return result
+
+    @classmethod
+    def execute_join(cls, tables, join_conditions, where_conditions):
+
+        if len(tables) == 2:
+            joined_table = join_tables(
+                tables[0],
+                tables[1],
+                'inner',
+                join_conditions[-1],
+            )
+
+        elif len(tables) > 2:
+            
+            left_table = cls.execute_join(
+                tables[:-1],
+                join_conditions[:-1],
+                where_conditions[:-1],
+            )
+
+            joined_table = join_tables(
+                left_table,
+                tables[:-1],
+                'inner',
+                join_conditions[-1]
+            )
+
+        else:
+            raise Exception('Need at least two tables to join but only got {}'.format(tables))
+
+        joined_table.subset_rows(where_conditions[-1])
+        return joined_table
+

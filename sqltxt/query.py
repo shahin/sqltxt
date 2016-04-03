@@ -211,7 +211,7 @@ class Query(object):
 
             joined_table = join_tables(
                 left_table,
-                tables[:-1],
+                tables[-1],
                 'inner',
                 join_conditions[-1]
             )

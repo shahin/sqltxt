@@ -45,8 +45,8 @@ def join_tables(left_table, right_table, join_type, join_conditions):
     return join_result_table
 
 def validate_join_conditions(join_conditions):
-    """Given join conditions defined as string tokens in a dictionary, return a validated set of join
-    conditions defined as Column objects in a dictionary."""
+    """Given join conditions defined as string tokens in a dictionary, return a validated set of
+    join conditions defined as Column objects in a dictionary."""
 
     for condition in join_conditions:
         if condition.operator != '==':

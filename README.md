@@ -18,7 +18,19 @@ cd sqltxt
 pip install -e.
 ```
 
-## Run
+## Examples
+
+### Fast random sample from a large file
+
+
+### Print the last few lines (but keep the header)
+
+
+### Count categories
+
+
+### Join multiple data sources
+
 
 ```bash
 # sqltxt "

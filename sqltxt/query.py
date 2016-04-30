@@ -96,14 +96,6 @@ def stringify_conditions(conditions):
 
     return ' '.join(stringified)
 
-def map_aliases(relations):
-    """Return a dictionary that contains each relation's alias keyed by itself and by its path."""
-    aliases = dict(
-        [ (r['path'], r['alias'], ) for r in relations ] + \
-        [ (r['alias'], r['alias'], ) for r in relations ]
-    )
-    return aliases
-
 class Query(object):
     """Create Tables and perform operations on them."""
 
@@ -111,8 +103,6 @@ class Query(object):
             sample_size=None, random_seed=None, is_top_level=True):
 
         self.relations = relations
-        self.table_aliases = map_aliases(relations)
-
         self.column_names = OrderedSet([
             ColumnName(c) if not isinstance(c, ColumnName) else c for c in columns
         ])

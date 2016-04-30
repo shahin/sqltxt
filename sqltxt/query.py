@@ -19,13 +19,15 @@ def stage_columns(tables, column_names):
     UnknownColumnNameError if the column name can't be found on any of the given tables.
     """
 
-    assigned_columns = [ [] for i in range(len(tables)) ]
+    staged_columns = [ [] for i in range(len(tables)) ]
+
     for column_name in column_names:
         matched_columns = []
+
         for idx, table in enumerate(tables):
             matched_column = table.get_column_for_name(column_name)
             if matched_column:
-                assigned_columns[idx].append(column_name)
+                staged_columns[idx].append(column_name)
                 matched_columns.append(matched_column)
 
         if len(matched_columns) > 1:
@@ -33,7 +35,7 @@ def stage_columns(tables, column_names):
         elif len(matched_columns) == 0:
             raise UnknownColumnNameError(column_name)
 
-    return assigned_columns
+    return staged_columns
 
 def stage_conditions(tables, conditions):
     """Given a list of tables and a list of conditions, return a list of conditions with each at
@@ -141,10 +143,10 @@ class Query(object):
 
         # determine which columns need to be on each table on output and on input
         table_columns = stage_columns(self.tables, self.column_names)
-        unassigned_condition_columns = itertools.chain(
+        unstaged_condition_columns = itertools.chain(
             *[condition.column_names for condition in self.conditions]
         )
-        condition_columns = stage_columns(self.tables, unassigned_condition_columns)
+        condition_columns = stage_columns(self.tables, unstaged_condition_columns)
 
         # optimize join order
         join_order = plan(self.tables, self.join_conditions, self.where_conditions)

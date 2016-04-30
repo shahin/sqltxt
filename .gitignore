@@ -35,7 +35,15 @@ nosetests.xml
 .project
 .pydevproject
 
-# vim temp files
-*.swp
-*.swo
-*.swn
+# vim swap
+[._]*.s[a-w][a-z]
+[._]s[a-w][a-z]
+# vim session
+Session.vim
+# vim temporary
+.netrwhist
+*~
+tags
+
+# mac
+.DS_Store

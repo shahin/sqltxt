@@ -329,7 +329,7 @@ class QueryTest(unittest.TestCase):
                 {'path': 'table_a.txt', 'alias': 'table_a.txt'},
                 {'path': 'table_b.txt', 'alias': 'tb'}
             ],
-            conditions=[ ['table_a.txt.col_a', '==', 'tb.col_a'], ],
+            conditions=[ ['table_a.txt.col_a', '==', 'table_b.txt.col_a'], ],
             columns=['tb.*']
         )
         t = query.execute()

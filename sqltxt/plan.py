@@ -19,6 +19,9 @@ def build_graph(tables, join_conditions):
     """Given a list of tables and join conditions across those tables, return a graph of
     tables (nodes) connected by join conditions (edges)."""
 
+    equivalent_names = { table.alias: table.name for table in tables }
+    equivalent_names.update({ table.name: table.alias for table in tables })
+
     graph = {}
     for idx, relation in enumerate(tables):
         graph[relation.alias] = { 'idx': idx, 'neighbors': set([]) }
@@ -28,7 +31,13 @@ def build_graph(tables, join_conditions):
         for cond in join_conditions
     ]
 
+    edges_with_resolved_names = []
     for left, right in edges:
+        resolved_left = equivalent_names[left] if left not in graph else left
+        resolved_right = equivalent_names[right] if right not in graph else right
+        edges_with_resolved_names.append((resolved_left, resolved_right))
+
+    for left, right in edges_with_resolved_names:
         graph[left]['neighbors'].add(right)
         graph[right]['neighbors'].add(left)
 

@@ -3,10 +3,13 @@ import copy
 import re
 
 VALID_IDENTIFIER_REGEX = '^[a-zA-Z_][a-zA-Z0-9_.]*$'
+WILDCARD_REGEX = '^[a-zA-Z0-9_.]*\*$'
 
 def is_valid_identifier(identifier):
     return re.match(VALID_IDENTIFIER_REGEX, identifier)
 
+def is_wildcard_identifier(identifier):
+    return re.match(WILDCARD_REGEX, identifier)
 
 class AmbiguousColumnNameError(Exception):
     def __init__(self, column_name, matched_columns):
@@ -76,12 +79,15 @@ class ColumnName(object):
     
     In SQL, ColumnName qualifiers are usually table names or table aliases."""
 
-    def __init__(self, name, qualifiers=None):
+    def __init__(self, name, qualifiers=None, allow_wildcard=False):
         self.original_token = name
         name_parts = name.split('.')
         self.name = name_parts[-1]
+        self.is_wildcard = False
 
-        if not is_valid_identifier(self.name):
+        if allow_wildcard and is_wildcard_identifier(self.name):
+            self.is_wildcard = True
+        elif not is_valid_identifier(self.name):
             raise InvalidColumnNameError(self.name)
 
         self.qualifiers = OrderedSet(qualifiers or [])
@@ -112,7 +118,7 @@ class ColumnName(object):
      
     def __gt__(self, other):
         if type(other) is type(self):
-            return (self.name == other.name and self.qualifiers < other.qualifiers)
+            return ((self.name == other.name or self.is_wildcard) and self.qualifiers <= other.qualifiers)
         return False
      
     def __lt__(self, other):

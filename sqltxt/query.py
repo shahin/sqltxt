@@ -1,11 +1,11 @@
 import itertools
+
 from ordered_set import OrderedSet
 
 from column import ColumnName, AmbiguousColumnNameError, UnknownColumnNameError
 from table import Table
 from joins import join_tables
 from plan import plan
-
 from expression import get_cnf_conditions
 
 import logging
@@ -106,7 +106,8 @@ class Query(object):
 
         self.relations = relations
         self.column_names = OrderedSet([
-            ColumnName(c) if not isinstance(c, ColumnName) else c for c in columns
+            ColumnName(c, allow_wildcard=True) if not isinstance(c, ColumnName) else c
+            for c in columns
         ])
 
         if conditions is None:
@@ -119,17 +120,25 @@ class Query(object):
         self.is_top_level = is_top_level  # not a subquery
 
     @staticmethod
-    def _replace_column_wildcards(column_list, replacement_columns):
-        """Given a list of Columns, replace any Column named '*' with all Columns in the replacement 
-        list."""
-        columns_resolved_wildcards = []
-        for col in column_list:
-            if col.name == '*':
-                columns_resolved_wildcards.extend(replacement_columns)
-            else:
-                columns_resolved_wildcards.append(col)
+    def replace_wildcard_column_names(column_name_list, table_list):
+        """Given a list of ColumnNames, replace any ColumnName that is a wildcard with all
+        ColumnNames on tables with matching qualifiers (or all tables if the wildcard is
+        unqualified)."""
 
-        return columns_resolved_wildcards
+        all_table_columns = [
+            col for col in itertools.chain(*[table.columns for table in table_list])
+        ]
+
+        resolved_column_names = []
+        for idx, col_name in enumerate(column_name_list):
+            if col_name.is_wildcard:
+                resolved_column_names.extend(OrderedSet([
+                    col.alias for col in all_table_columns if col_name.match(*col.names)
+                ]))
+            else:
+                resolved_column_names.append(col_name)
+
+        return resolved_column_names
 
     def execute(self):
 
@@ -141,8 +150,9 @@ class Query(object):
             table = Table.from_file_path(table_path, alias=table_alias)
             self.tables.append(table)
 
+        self.column_names = self.replace_wildcard_column_names(self.column_names, self.tables)
+
         # determine which columns need to be on each table on output and on input
-        table_columns = stage_columns(self.tables, self.column_names)
         unstaged_condition_columns = itertools.chain(
             *[condition.column_names for condition in self.conditions]
         )

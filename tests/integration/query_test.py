@@ -274,39 +274,81 @@ class QueryTest(unittest.TestCase):
 
         self.assertEqual(table_actual_out, table_expected_out)
 
-    @unittest.skip('wildcards not supported')
     def test_wildcard_selects_all_columns(self):
-        
-        query = Query(
-            from_clause = {'left_relation': {'path': 'table_a.txt'}}, 
-            where_clauses = [], 
-            columns = ['*'])
-        table_actual = query.execute()
-        cmd_actual = table_actual.get_cmd_str(output_column_names=True)
-        cmd_expected = 'echo "col_a,col_b"; tail +2 TABLE_A.txt'
-        self.assertEqual(cmd_actual, cmd_expected)
-        
-        table_actual_out = subprocess.check_output(['/bin/bash', '-c', cmd_actual])
-        table_expected_out = subprocess.check_output(['/bin/bash', '-c', cmd_expected])
 
+        query = Query(
+            [{'path': 'table_a.txt', 'alias': 'table_a.txt'}],
+            columns=['*']
+        )
+        table_actual = query.execute()
+
+        table_expected = Table.from_cmd(
+            name = 'expected', 
+            cmd = 'echo -e "1,1\n2,3\n3,2"',
+            columns = ["col_a", "col_b"] 
+            )
+
+        table_expected_out = subprocess.check_output(['/bin/bash', '-c', table_expected.get_cmd_str(output_column_names=True)])
+        table_actual_out = subprocess.check_output(['/bin/bash', '-c', table_actual.get_cmd_str(output_column_names=True)])
         self.assertEqual(table_actual_out, table_expected_out)
 
-    @unittest.skip('wildcards not supported')
-    def test_wildcard_on_join_selects_all_columns(self):
-        
-        query = Query(
-          from_clause = [['table_a'],[['inner','join'],'table_b','on',['table_a.col_b', '=', 'table_b.col_a']]], 
-          where_clauses = [], 
-          columns = ['*'])
-        table_actual = query.execute()
-        cmd_actual = table_actual.get_cmd_str(output_column_names=True)
-        cmd_expected = \
-          'echo "col_b,col_a,col_z"; ' + \
-          "join -t, -1 2 -2 1 <(tail +2 TABLE_A.txt | sort -t, -k 2,2) <(tail +2 TABLE_B.txt | sort -t, -k 1,1)"
-        self.assertEqual(cmd_actual, cmd_expected)
-        
-        table_actual_out = subprocess.check_output(['/bin/bash', '-c', cmd_actual])
-        table_expected_out = subprocess.check_output(['/bin/bash', '-c', cmd_expected])
+    def test_qualified_wildcard_selects_all_table_columns_for_table_qualifier(self):
 
+        query = Query(
+            [{'path': 'table_a.txt', 'alias': 'table_a.txt'}],
+            columns=['table_a.txt.*']
+        )
+        table_actual = query.execute()
+
+        table_expected = Table.from_cmd(
+            name = 'expected', 
+            cmd = 'echo -e "1,1\n2,3\n3,2"',
+            columns = ["col_a", "col_b"] 
+            )
+
+        table_expected_out = subprocess.check_output(['/bin/bash', '-c', table_expected.get_cmd_str(output_column_names=True)])
+        table_actual_out = subprocess.check_output(['/bin/bash', '-c', table_actual.get_cmd_str(output_column_names=True)])
         self.assertEqual(table_actual_out, table_expected_out)
-        
+
+        query = Query(
+            [
+                {'path': 'table_a.txt', 'alias': 'table_a.txt'},
+                {'path': 'table_b.txt', 'alias': 'table_b.txt'}
+            ],
+            conditions=[ ['table_a.txt.col_a', '==', 'table_b.txt.col_a'], ],
+            columns=['table_a.txt.*']
+        )
+        t = query.execute()
+        header_actual = t.columns
+        header_expected = ['col_a', 'col_b']
+
+        self.assertEqual([str(col) for col in header_actual], header_expected)
+
+        query = Query(
+            [
+                {'path': 'table_a.txt', 'alias': 'table_a.txt'},
+                {'path': 'table_b.txt', 'alias': 'tb'}
+            ],
+            conditions=[ ['table_a.txt.col_a', '==', 'tb.col_a'], ],
+            columns=['tb.*']
+        )
+        t = query.execute()
+        header_actual = t.columns
+        header_expected = ['col_a', 'col_z']
+
+        self.assertEqual([str(col) for col in header_actual], header_expected)
+
+    def test_multiple_wildcards_result_in_duplicate_columns(self):
+        query = Query(
+            [
+                {'path': 'table_a.txt', 'alias': 'table_a.txt'},
+                {'path': 'table_b.txt', 'alias': 'tb'}
+            ],
+            conditions=[ ['table_a.txt.col_a', '==', 'tb.col_a'], ],
+            columns=['table_a.txt.col_a', 'tb.*', '*']
+        )
+        t = query.execute()
+        header_actual = t.columns
+        header_expected = ['col_a', 'col_a', 'col_z', 'col_a', 'col_b', 'col_a', 'col_z', ]
+
+        self.assertEqual([str(col) for col in header_actual], header_expected)

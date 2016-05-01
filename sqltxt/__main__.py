@@ -33,7 +33,7 @@ sys.stdin = stdin
 
 def main():
     args = docopt(__doc__)
-    sql_str = args['SQL'] or sys.stdin.read()
+    sql_str = args['SQL']
     debug = args['--debug']
     execute = args['--execute']
     random_seed = args['--random-seed']
@@ -60,7 +60,7 @@ def main():
         # explicitly use bash instead of the default for subprocess(..., shell=True) which is sh
         result_str = "({})".format(result_str)
         proc = subprocess.Popen(['/bin/bash', '-c', result_str])
-
+        proc.wait()
     else:
         result_str = result_str + "\n"
         print(result_str, end="")

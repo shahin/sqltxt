@@ -48,7 +48,7 @@ select_tok = Keyword('select', caseless=True)
 from_tok = Keyword('from', caseless=True) 
 
 # for parsing select-from statements
-idr = ~keyword + Word(alphas + '*', alphanums + '_*').setName('identifier')
+idr = ~keyword + Word(alphas + '*', alphanums + '_/-.*').setName('identifier')
 
 table_path = Word(''.join([c for c in printables if c not in "?"])).setResultsName('path')
 table_alias = idr.setResultsName('alias')

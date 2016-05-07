@@ -101,14 +101,14 @@ def stringify_conditions(conditions):
 class Query(object):
     """Create Tables and perform operations on them."""
 
-    def __init__(self, relations, conditions=None, select_columns=None, aggregate_columns=None,
-            sample_size=None, random_seed=None, is_top_level=True):
+    def __init__(self, relations, conditions=None, select_list=None, aggregate_list=None,
+            group_by_list=None, sample_size=None, random_seed=None, is_top_level=True):
 
         self.relations = relations
         self.column_names = OrderedSet([
             ColumnName(c, allow_wildcard=True) if not isinstance(c, ColumnName) else c
-            for c in select_columns
-        ])
+            for c in select_list
+        ]) if select_list is not None else []
 
         if conditions is None:
             conditions = []
@@ -119,7 +119,9 @@ class Query(object):
         self.random_seed = random_seed
         self.is_top_level = is_top_level  # not a subquery
 
-        self.group_by = None
+        self.group_by_column_names = OrderedSet([
+            ColumnName(c) if not isinstance(c, ColumnName) else c for c in group_by_list
+        ]) if group_by_list is not None else []
 
     @staticmethod
     def replace_wildcard_column_names(column_name_list, table_list):
@@ -187,7 +189,12 @@ class Query(object):
         else:
             result = self.tables[0]
 
-        result.order_columns(self.column_names, True)
+        # apply group-by
+        if self.group_by_column_names:
+            assert set(self.group_by_column_names) >= set(self.column_names)
+            result.sort(self.group_by_column_names, unique=True)
+
+        result.order_columns(self.column_names, drop_other_columns=True)
 
         if self.sample_size is not None:
             result.sample_rows(self.sample_size, self.random_seed)

@@ -109,6 +109,8 @@ from_clause = table_idr.setResultsName('relation') + ZeroOrMore(Group(
     join + table_idr.setResultsName('relation') + on_ + where_cond.setResultsName('join_conditions') 
   )).setResultsName('joins', listAllMatches=True)
 
+group_by_clause = delimitedList(column_idr)
+
 tablesample_clause = CaselessLiteral("tablesample") + \
         Suppress("(") + \
         Word(nums).setResultsName('sample_size').setParseAction(lambda s, loc, tok: int(tok[0])) + \
@@ -120,6 +122,7 @@ select_stmt << (
     from_tok +
     from_clause.setResultsName('from_clause') +
     Optional( CaselessLiteral("where") + where_expr.setResultsName("where_clause") ) +
+    Optional( CaselessLiteral("group by") + group_by_clause.setResultsName("group_by_clause") ) +
     Optional( tablesample_clause ).setResultsName("tablesample_clause") +
     StringEnd()
     )

@@ -45,13 +45,14 @@ def main():
     relations, conditions = get_relations_and_conditions(parsed)
     sample_size = parsed.sample_size if parsed.sample_size != '' else None
 
-    select_columns, aggregate_columns = get_aggregate_and_nonaggregate_columns(parsed)
+    select_list, aggregate_list = get_aggregates_and_nonaggregates(parsed)
  
     query = Query(
         relations, 
         conditions=conditions, 
-        select_columns=select_columns,
-        aggregate_columns=aggregate_columns,
+        select_list=select_list,
+        aggregate_list=aggregate_list,
+        group_by_list=parsed.group_by_clause,
         sample_size=sample_size,
         random_seed=random_seed,
         is_top_level=True
@@ -68,20 +69,20 @@ def main():
         result_str = result_str + "\n"
         print(result_str, end="")
 
-def get_aggregate_and_nonaggregate_columns(parsed):
-    select_columns = []
-    aggregate_columns = []
+def get_aggregates_and_nonaggregates(parsed):
+    select_list = []
+    aggregate_list = []
 
     if 'aggregate_functions' not in parsed.column_definitions:
-        return parsed.column_definitions, aggregate_columns
+        return parsed.column_definitions, aggregate_list
 
     for col in parsed.column_definitions:
         if col in parsed.column_definitions.aggregate_functions.asList():
-            aggregate_columns.append(col)
+            aggregate_list.append(col)
         else:
-            select_columns.append(col)
+            select_list.append(col)
 
-    return select_columns, aggregate_columns
+    return select_list, aggregate_list
 
 if __name__ == '__main__':
     main()

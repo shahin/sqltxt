@@ -125,7 +125,7 @@ class QueryTest(unittest.TestCase):
 
         query = Query(
             [{'path': 'table_a.txt', 'alias': 'table_a.txt'}],
-            select_columns=['col_b']
+            select_list=['col_b']
         )
         table_actual = query.execute()
 
@@ -144,7 +144,7 @@ class QueryTest(unittest.TestCase):
         query = Query(
             [{'path': 'table_a.txt', 'alias': 'table_a.txt'}],
             conditions=[['col_b', '<', '3'], 'or', ['col_b', '<', '3']],
-            select_columns=['col_a']
+            select_list=['col_a']
         )
         table_actual = query.execute()
 
@@ -166,7 +166,7 @@ class QueryTest(unittest.TestCase):
                 {'path': 'table_b.txt', 'alias': 'table_b.txt'}
             ],
             conditions=[ ['table_a.txt.col_a', '==', 'table_b.txt.col_a'], ],
-            select_columns=['table_a.txt.col_a', 'col_b', 'col_z']
+            select_list=['table_a.txt.col_a', 'col_b', 'col_z']
         )
         t = query.execute()
         header_actual = t.columns
@@ -182,7 +182,7 @@ class QueryTest(unittest.TestCase):
                 {'path': 'table_b.txt', 'alias': 'table_b.txt'}
             ],
             conditions=[ ['table_a.txt.col_a', '==', 'table_b.txt.col_a'], ],
-            select_columns=['table_a.txt.col_a', 'col_b', 'col_z']
+            select_list=['table_a.txt.col_a', 'col_b', 'col_z']
         )
 
         table_actual = query.execute()
@@ -205,7 +205,7 @@ class QueryTest(unittest.TestCase):
                 {'path': 'table_b.txt', 'alias': 'table_b.txt'}
             ],
             conditions=[ ['table_a.txt.col_b', '==', 'table_b.txt.col_a'], ],
-            select_columns=['col_b', 'table_b.txt.col_a', 'col_z']
+            select_list=['col_b', 'table_b.txt.col_a', 'col_z']
         )
         table_actual = query.execute()
         cmd_actual = table_actual.get_cmd_str(output_column_names=True)
@@ -230,7 +230,7 @@ class QueryTest(unittest.TestCase):
                 ['table_a.txt.col_a', '==', 'table_d.txt.col_a'], 'and',
                 ['table_a.txt.col_b', '==', 'table_d.txt.col_b'],
             ],
-            select_columns=['table_a.txt.col_b', 'table_a.txt.col_a', 'col_x']
+            select_list=['table_a.txt.col_b', 'table_a.txt.col_a', 'col_x']
         )
         table_actual = query.execute()
         cmd_actual = table_actual.get_cmd_str(output_column_names=True)
@@ -255,7 +255,7 @@ class QueryTest(unittest.TestCase):
                 ['table_a.txt.col_a', '==', 'table_d.txt.col_a'], 'and',
                 ['table_a.txt.col_a', '==', 'table_b.txt.col_a'],
             ],
-            select_columns=['col_z', 'table_a.txt.col_a', 'col_x']
+            select_list=['col_z', 'table_a.txt.col_a', 'col_x']
         )
         table_actual = query.execute()
         cmd_actual = table_actual.get_cmd_str(output_column_names=True)
@@ -278,7 +278,7 @@ class QueryTest(unittest.TestCase):
 
         query = Query(
             [{'path': 'table_a.txt', 'alias': 'table_a.txt'}],
-            select_columns=['*']
+            select_list=['*']
         )
         table_actual = query.execute()
 
@@ -296,7 +296,7 @@ class QueryTest(unittest.TestCase):
 
         query = Query(
             [{'path': 'table_a.txt', 'alias': 'table_a.txt'}],
-            select_columns=['table_a.txt.*']
+            select_list=['table_a.txt.*']
         )
         table_actual = query.execute()
 
@@ -316,7 +316,7 @@ class QueryTest(unittest.TestCase):
                 {'path': 'table_b.txt', 'alias': 'table_b.txt'}
             ],
             conditions=[ ['table_a.txt.col_a', '==', 'table_b.txt.col_a'], ],
-            select_columns=['table_a.txt.*']
+            select_list=['table_a.txt.*']
         )
         t = query.execute()
         header_actual = t.columns
@@ -330,7 +330,7 @@ class QueryTest(unittest.TestCase):
                 {'path': 'table_b.txt', 'alias': 'tb'}
             ],
             conditions=[ ['table_a.txt.col_a', '==', 'table_b.txt.col_a'], ],
-            select_columns=['tb.*']
+            select_list=['tb.*']
         )
         t = query.execute()
         header_actual = t.columns
@@ -345,7 +345,7 @@ class QueryTest(unittest.TestCase):
                 {'path': 'table_b.txt', 'alias': 'tb'}
             ],
             conditions=[ ['table_a.txt.col_a', '==', 'tb.col_a'], ],
-            select_columns=['table_a.txt.col_a', 'tb.*', '*']
+            select_list=['table_a.txt.col_a', 'tb.*', '*']
         )
         t = query.execute()
         header_actual = t.columns

@@ -24,7 +24,7 @@ import subprocess
 
 from docopt import docopt
 
-from sql_tokenizer import parse, get_relations_and_conditions
+from sql.parse import parse, get_relations_and_conditions
 from query import Query
 
 # unbuffer input stream to enable --execute on piped input data

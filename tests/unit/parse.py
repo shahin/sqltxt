@@ -1,5 +1,5 @@
 import unittest
-from sqltxt.sql_tokenizer import select_stmt, parse
+from sqltxt.sql.parse import select_stmt, parse
 
 class SqlTokenizerTest(unittest.TestCase):
 

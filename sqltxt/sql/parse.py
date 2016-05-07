@@ -19,7 +19,7 @@ from pyparsing import (
   nums,
   )
 
-from sql.tokens import *
+from tokens import *
 
 column_list = Group(delimitedList((column_idr ^ aggregate_function.setResultsName('aggregate_functions', listAllMatches=True))))
 

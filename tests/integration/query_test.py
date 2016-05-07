@@ -352,3 +352,39 @@ class QueryTest(unittest.TestCase):
         header_expected = ['col_a', 'col_a', 'col_z', 'col_a', 'col_b', 'col_a', 'col_z', ]
 
         self.assertEqual([str(col) for col in header_actual], header_expected)
+          
+    def test_group_by(self):
+
+        query = Query(
+            [{'path': 'table_b.txt', 'alias': 'table_b.txt'}],
+            select_list=['col_a'],
+            group_by_list=['col_a'],
+        )
+        table_actual = query.execute()
+
+        table_expected = Table.from_cmd(
+          'expected',
+          cmd = 'echo -e "1\n2\n5"',
+          columns = ['col_a']
+          )
+
+        table_expected_out = subprocess.check_output(['/bin/bash', '-c', table_expected.get_cmd_str(output_column_names=True)])
+        table_actual_out = subprocess.check_output(['/bin/bash', '-c', table_actual.get_cmd_str(output_column_names=True)])
+        self.assertEqual(table_actual_out, table_expected_out)
+
+        query = Query(
+            [{'path': 'table_b.txt', 'alias': 'table_b.txt'}],
+            select_list=['col_a'],
+            group_by_list=['col_a', 'col_z'],
+        )
+        table_actual = query.execute()
+
+        table_expected = Table.from_cmd(
+          'expected',
+          cmd = 'echo -e "1\n2\n2\n5"',
+          columns = ['col_a']
+          )
+
+        table_expected_out = subprocess.check_output(['/bin/bash', '-c', table_expected.get_cmd_str(output_column_names=True)])
+        table_actual_out = subprocess.check_output(['/bin/bash', '-c', table_actual.get_cmd_str(output_column_names=True)])
+        self.assertEqual(table_actual_out, table_expected_out)

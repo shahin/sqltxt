@@ -101,13 +101,13 @@ def stringify_conditions(conditions):
 class Query(object):
     """Create Tables and perform operations on them."""
 
-    def __init__(self, relations, conditions=None, columns=None,
+    def __init__(self, relations, conditions=None, select_columns=None, aggregate_columns=None,
             sample_size=None, random_seed=None, is_top_level=True):
 
         self.relations = relations
         self.column_names = OrderedSet([
             ColumnName(c, allow_wildcard=True) if not isinstance(c, ColumnName) else c
-            for c in columns
+            for c in select_columns
         ])
 
         if conditions is None:
@@ -118,6 +118,8 @@ class Query(object):
         self.sample_size = sample_size
         self.random_seed = random_seed
         self.is_top_level = is_top_level  # not a subquery
+
+        self.group_by = None
 
     @staticmethod
     def replace_wildcard_column_names(column_name_list, table_list):

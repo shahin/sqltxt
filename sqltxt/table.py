@@ -170,7 +170,7 @@ class Table(object):
 
         return True
 
-    def sort(self, sort_by):
+    def sort(self, sort_by, unique=False):
         """Sort the rows of this Table by the given columns or column names."""
 
         deduped_sort_by = dedupe_with_order(sort_by)
@@ -190,6 +190,10 @@ class Table(object):
               ','.join([str(idx + 1),str(idx + 1)]) for idx in column_idxs_to_sort_by)
 
         sort_cmd = 'sort -t{0} -k {1}'.format(self.delimiter, sort_key_params)
+
+        if unique:
+            sort_cmd = sort_cmd + ' --unique'
+
         self.sorted_by = columns_to_sort_by
         self.cmds.append(sort_cmd)
     
